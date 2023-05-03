@@ -32,15 +32,28 @@ impl Disassembler {
         *offset += 1;
     }
 
-    fn disassemble_instruction(block: &ByteBlock, offset: &mut usize) {
+    pub fn disassemble_instruction(block: &ByteBlock, offset: &mut usize) {
         print!("{:04} ", *offset);
+        
+        let in_bounds = *offset < block.bytes.len();
+        if !in_bounds {
+            return;
+        }
+        
+        let same_line = || {
+            if *offset == 0 {
+                return false;
+            }
 
-        if *offset > 0 && block.lines[*offset] == block.lines[*offset - 1] {
+            block.lines[*offset] == block.lines[*offset - 1]
+        };
+
+        if same_line() {
             print!("   | ");
         } else {
             print!("{:04} ", block.lines[*offset]);
         }
-
+        
         let instruction = block.bytes[*offset];
         match OpCode::from(instruction) {
             Ok(inst) => match inst {
