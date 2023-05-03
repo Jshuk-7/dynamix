@@ -1,7 +1,7 @@
 use crate::{
     byte_block::{ByteBlock, OpCode},
     constant::Constant,
-    disassembler::Disassembler,
+    disassembler::Disassembler, stack::Stack,
 };
 
 pub enum InterpretResult {
@@ -14,6 +14,7 @@ pub struct VirtualMachine {
     block: ByteBlock,
     ip: *mut u8,
     origin: *const u8,
+    stack: Stack<Constant>,
 }
 
 impl VirtualMachine {
@@ -22,6 +23,7 @@ impl VirtualMachine {
             block: ByteBlock::new(),
             ip: 0 as *mut u8,
             origin: 0 as *const u8,
+            stack: Stack::new(),
         }
     }
 
