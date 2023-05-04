@@ -57,13 +57,21 @@ impl Disassembler {
         let instruction = block.bytes[*offset];
         match OpCode::from(instruction) {
             Ok(inst) => match inst {
-                OpCode::Return => Disassembler::simple_instruction("OP_RETURN", offset),
                 OpCode::Constant => {
                     Disassembler::constant_instruction(block, "OP_CONSTANT", offset)
                 }
                 OpCode::ConstantLong => {
                     Disassembler::constant_long_instruction(block, "OP_CONSTANT_LONG", offset)
                 }
+                OpCode::Negate => {
+                    Disassembler::simple_instruction("OP_NEGATE", offset)
+                }
+                
+                OpCode::Add => Disassembler::simple_instruction("OP_ADD", offset),
+                OpCode::Sub => Disassembler::simple_instruction("OP_SUB", offset),
+                OpCode::Mul => Disassembler::simple_instruction("OP_MUL", offset),
+                OpCode::Div => Disassembler::simple_instruction("OP_DIV", offset),
+                OpCode::Return => Disassembler::simple_instruction("OP_RETURN", offset),
             },
             Err(..) => {
                 eprintln!("Unknown opcode '{instruction:04}'");

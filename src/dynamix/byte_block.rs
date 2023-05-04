@@ -2,17 +2,27 @@ use crate::constant::{Constant, ConstantPool};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OpCode {
-    Return,
     Constant,
     ConstantLong,
+    Negate,
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Return,
 }
 
 impl OpCode {
     pub fn from(value: u8) -> Result<Self, ()> {
         match value {
-            value if value == OpCode::Return as u8 => Ok(OpCode::Return),
             value if value == OpCode::Constant as u8 => Ok(OpCode::Constant),
             value if value == OpCode::ConstantLong as u8 => Ok(OpCode::ConstantLong),
+            value if value == OpCode::Negate as u8 => Ok(OpCode::Negate),
+            value if value == OpCode::Add as u8 => Ok(OpCode::Add),
+            value if value == OpCode::Sub as u8 => Ok(OpCode::Sub),
+            value if value == OpCode::Mul as u8 => Ok(OpCode::Mul),
+            value if value == OpCode::Div as u8 => Ok(OpCode::Div),
+            value if value == OpCode::Return as u8 => Ok(OpCode::Return),
             _ => Err(()),
         }
     }

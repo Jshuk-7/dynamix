@@ -6,9 +6,9 @@ use crate::{
 };
 
 pub enum InterpretResult {
-    Ok,
     CompileError,
     RuntimeError,
+    Ok,
 }
 
 const STACK_STARTING_CAP: usize = 256;
@@ -18,6 +18,32 @@ pub struct VirtualMachine {
     ip: *mut u8,
     origin: *const u8,
     stack: Stack<Constant>,
+}
+
+macro_rules! complete_binary {
+    ($self:expr, $op:tt, $lhs:expr, $rhs:expr) => {
+        if let Constant::Double(x) = $lhs {
+            if let Constant::Double(y) = $rhs {
+                $self.stack.push(Constant::Double(x $op y))
+            }
+        }
+    };
+}
+
+macro_rules! binary_op {
+    ($self:expr, $op:tt, $result:expr) => {
+        if let Some(rhs) = $self.stack.pop() {
+            if let Some(lhs) = $self.stack.pop() {
+                complete_binary!($self, $op, lhs, rhs)
+            } else {
+                $result = InterpretResult::RuntimeError;
+                break;
+            };
+        } else {
+            $result = InterpretResult::RuntimeError;
+            break;
+        };
+    };
 }
 
 impl VirtualMachine {
@@ -97,13 +123,6 @@ impl VirtualMachine {
 
             match OpCode::from(instruction) {
                 Ok(opcode) => match opcode {
-                    OpCode::Return => {
-                        if let Some(constant) = self.stack.pop() {
-                            println!("{constant}");
-                        }
-
-                        break;
-                    }
                     OpCode::Constant => {
                         // remember OP_CONSTANT instruction 'loads' a constant onto the stack
                         if let Some(constant) = self.read_constant() {
@@ -114,6 +133,24 @@ impl VirtualMachine {
                         if let Some(constant) = self.read_constant() {
                             self.stack.push(constant);
                         }
+                    }
+                    OpCode::Negate => {
+                        if let Some(constant) = self.stack.pop() {
+                            match constant {
+                                Constant::Double(x) => self.stack.push(Constant::Double(-x)),
+                            }
+                        }
+                    }
+                    OpCode::Add => binary_op!(self, +, result),
+                    OpCode::Sub => binary_op!(self, -, result),
+                    OpCode::Mul => binary_op!(self, *, result),
+                    OpCode::Div => binary_op!(self, /, result),
+                    OpCode::Return => {
+                        if let Some(constant) = self.stack.pop() {
+                            println!("{constant}");
+                        }
+
+                        break;
                     }
                 },
                 Err(..) => result = InterpretResult::RuntimeError,
