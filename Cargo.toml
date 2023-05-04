@@ -7,6 +7,11 @@ edition = "2021"
 name = "dynamix"
 path = "src/lib.rs"
 
+[features]
+stack-trace = []
+
+default = ["stack-trace"]
+
 [[bin]]
 name = "testbed"
 path = "src/bin.rs"

@@ -39,8 +39,19 @@ impl ByteBlock {
         self.lines.push(line);
     }
 
-    pub fn push_constant(&mut self, value: Constant) -> u8 {
+    pub fn write_constant(&mut self, value: Constant, line: u32) {
+        let constant = self.push_constant(value);
+        self.push(constant, line);
+    }
+
+    fn push_constant(&mut self, value: Constant) -> u8 {
         self.constants.push(value);
         self.constants.len() as u8 - 1
+    }
+}
+
+impl Default for ByteBlock {
+    fn default() -> Self {
+        Self::new()
     }
 }

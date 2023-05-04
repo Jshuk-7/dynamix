@@ -22,7 +22,7 @@ impl Disassembler {
     fn constant_instruction(block: &ByteBlock, name: &str, offset: &mut usize) {
         Disassembler::write_block_instruction(block, name, offset)
     }
-    
+
     fn constant_long_instruction(block: &ByteBlock, name: &str, offset: &mut usize) {
         Disassembler::write_block_instruction(block, name, offset)
     }
@@ -34,12 +34,12 @@ impl Disassembler {
 
     pub fn disassemble_instruction(block: &ByteBlock, offset: &mut usize) {
         print!("{:04} ", *offset);
-        
+
         let in_bounds = *offset < block.bytes.len();
         if !in_bounds {
             return;
         }
-        
+
         let same_line = || {
             if *offset == 0 {
                 return false;
@@ -53,7 +53,7 @@ impl Disassembler {
         } else {
             print!("{:04} ", block.lines[*offset]);
         }
-        
+
         let instruction = block.bytes[*offset];
         match OpCode::from(instruction) {
             Ok(inst) => match inst {

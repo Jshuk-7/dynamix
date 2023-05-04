@@ -1,22 +1,28 @@
-use std::collections::VecDeque;
-
 pub struct Stack<T> {
-    data: VecDeque<T>,
+    data: Vec<T>,
 }
 
 impl<T> Stack<T> {
-    pub fn new() -> Self {
+    pub fn new(capacity: usize) -> Self {
         Self {
-            data: VecDeque::new(),
+            data: Vec::with_capacity(capacity),
         }
     }
 
     pub fn push(&mut self, value: T) {
-        self.data.push_back(value);
+        self.data.push(value);
     }
 
     pub fn pop(&mut self) -> Option<T> {
-        self.data.pop_front()
+        self.data.pop()
+    }
+
+    pub fn as_ptr(&self) -> *const T {
+        self.data.as_ptr()
+    }
+
+    pub fn top_as_ptr(&self) -> *const T {
+        unsafe { self.as_ptr().add(self.len()) }
     }
 
     pub fn len(&self) -> usize {
@@ -25,5 +31,9 @@ impl<T> Stack<T> {
 
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
+    }
+
+    pub fn clear(&mut self) {
+        self.data.clear();
     }
 }

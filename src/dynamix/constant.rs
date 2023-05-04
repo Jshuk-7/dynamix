@@ -1,4 +1,4 @@
-use std::{ops::Index, fmt::Display};
+use std::{fmt::Display, ops::Index};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[repr(align(4))]
@@ -29,7 +29,9 @@ impl Index<usize> for ConstantPool {
 
 impl ConstantPool {
     pub fn new() -> Self {
-        Self { constants: Vec::new() }
+        Self {
+            constants: Vec::new(),
+        }
     }
 
     pub fn push(&mut self, value: Constant) {
@@ -38,5 +40,15 @@ impl ConstantPool {
 
     pub fn len(&self) -> usize {
         self.constants.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.constants.is_empty()
+    }
+}
+
+impl Default for ConstantPool {
+    fn default() -> Self {
+        Self::new()
     }
 }

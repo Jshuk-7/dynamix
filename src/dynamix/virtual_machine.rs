@@ -1,7 +1,8 @@
 use crate::{
     byte_block::{ByteBlock, OpCode},
     constant::Constant,
-    disassembler::Disassembler, stack::Stack,
+    disassembler::Disassembler,
+    stack::Stack,
 };
 
 pub enum InterpretResult {
@@ -9,6 +10,8 @@ pub enum InterpretResult {
     CompileError,
     RuntimeError,
 }
+
+const STACK_STARTING_CAP: usize = 256;
 
 pub struct VirtualMachine {
     block: ByteBlock,
@@ -21,10 +24,14 @@ impl VirtualMachine {
     pub fn new() -> Self {
         Self {
             block: ByteBlock::new(),
-            ip: 0 as *mut u8,
-            origin: 0 as *const u8,
-            stack: Stack::new(),
+            ip: std::ptr::null_mut::<u8>(),
+            origin: std::ptr::null_mut::<u8>(),
+            stack: Stack::new(STACK_STARTING_CAP),
         }
+    }
+
+    pub fn stack(self) -> Stack<Constant> {
+        self.stack
     }
 
     pub fn interpret(&mut self, block: &ByteBlock) -> InterpretResult {
@@ -36,10 +43,11 @@ impl VirtualMachine {
     }
 
     fn advance_ip(&mut self) -> u8 {
+        let byte: u8;
         unsafe {
-            let byte = *self.ip;
+            byte = *self.ip;
             self.ip = self.ip.add(1);
-            return byte;
+            byte
         }
     }
 
@@ -67,27 +75,44 @@ impl VirtualMachine {
         loop {
             let mut offset = unsafe { self.ip.offset_from(self.origin) as usize };
 
-            let instruction = if let Some(code) = self.read_byte() {
-                code
-            } else {
-                break
-            };
-
-            if cfg!(debug_assertions) {
+            if cfg!(debug_assertions) && cfg!(feature = "stack-trace") {
+                print!("{:10}", ' ');
+                let mut slot = self.stack.as_ptr();
+                let top = self.stack.top_as_ptr();
+                while (slot as usize) < top as usize {
+                    unsafe {
+                        print!("[ {} ]", *slot);
+                        slot = slot.add(1);
+                    }
+                }
+                println!("");
                 Disassembler::disassemble_instruction(&self.block, &mut offset);
             }
 
+            let instruction = if let Some(code) = self.read_byte() {
+                code
+            } else {
+                break;
+            };
+
             match OpCode::from(instruction) {
                 Ok(opcode) => match opcode {
-                    OpCode::Return => break,
-                    OpCode::Constant => {
-                        if let Some(constant) = self.read_constant() {
+                    OpCode::Return => {
+                        if let Some(constant) = self.stack.pop() {
                             println!("{constant}");
+                        }
+
+                        break;
+                    }
+                    OpCode::Constant => {
+                        // remember OP_CONSTANT instruction 'loads' a constant onto the stack
+                        if let Some(constant) = self.read_constant() {
+                            self.stack.push(constant);
                         }
                     }
                     OpCode::ConstantLong => {
                         if let Some(constant) = self.read_constant() {
-                            println!("{constant}");
+                            self.stack.push(constant);
                         }
                     }
                 },
@@ -96,5 +121,11 @@ impl VirtualMachine {
         }
 
         result
+    }
+}
+
+impl Default for VirtualMachine {
+    fn default() -> Self {
+        Self::new()
     }
 }
