@@ -21,12 +21,12 @@ pub fn repl() {
 
         let mut line = String::new();
 
-        stdin().read_line(&mut line);
+        stdin().read_line(&mut line).unwrap();
         run(&line);
     }
 }
 
-pub fn run(source: &String) -> InterpretResult {
+pub fn run(source: &str) -> InterpretResult {
     let mut compiler = Compiler::new(source);
 
     compiler.compile();

@@ -1,18 +1,18 @@
 use crate::lexer::{Lexer, TokenType};
 
-pub struct Compiler {
-    lexer: Lexer,
+pub struct Compiler<'a> {
+    lexer: Lexer<'a>,
 }
 
-impl Compiler {
-    pub fn new(source: &String) -> Self {
+impl<'a> Compiler<'a> {
+    pub fn new(source: &'a str) -> Self {
         Self {
             lexer: Lexer::new(source),
         }
     }
 
     pub fn compile(&mut self) {
-        while let Some(token) = self.lexer.next() {
+        for token in self.lexer.by_ref() {
             if let TokenType::Eof = token.typ3 {
                 break;
             }

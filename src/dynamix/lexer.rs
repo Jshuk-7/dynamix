@@ -66,14 +66,20 @@ impl Token {
     }
 }
 
+impl Default for Token {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "[{:8} line:{:2} {:?}]", self.lexeme, self.line, self.typ3)
     }
 }
 
-pub struct Lexer {
-    source: String,
+pub struct Lexer<'a> {
+    source: &'a str,
     chars: Vec<char>,
     start: usize,
     cursor: usize,
@@ -81,10 +87,10 @@ pub struct Lexer {
     keywords: HashMap<String, TokenType>,
 }
 
-impl Lexer {
-    pub fn new(source: &String) -> Self {
+impl<'a> Lexer<'a> {
+    pub fn new(source: &'a str) -> Self {
         Self {
-            source: source.clone(),
+            source: source,
             chars: source.chars().collect(),
             start: 0,
             cursor: 0,
@@ -131,6 +137,10 @@ impl Lexer {
 
     fn trim(&mut self) {
         loop {
+            if self.is_at_end() {
+                break;
+            }
+
             let c = self.peek();
             match c {
                 ' ' | '\t' | '\r' => {
@@ -240,7 +250,7 @@ impl Lexer {
 
         let value = String::from(&self.source[self.start..self.cursor]);
 
-        let typ3 = if self.keywords.iter().any(|(s, t)| s == &value) {
+        let typ3 = if self.keywords.iter().any(|(s, ..)| s == &value) {
             *self.keywords.get(&value).unwrap()
         } else {
             TokenType::Ident
@@ -250,17 +260,18 @@ impl Lexer {
     }
 }
 
-impl Iterator for Lexer {
+impl<'a> Iterator for Lexer<'a> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.trim();
 
-        self.start = self.cursor;
-        let c = self.advance();
         if self.is_at_end() {
             return Some(self.make_token(TokenType::Eof));
         }
+
+        self.start = self.cursor;
+        let c = self.advance();
 
         if c.is_ascii_digit() {
             return self.number();
@@ -268,7 +279,7 @@ impl Iterator for Lexer {
             return self.identifier();
         }
 
-        return match c {
+        match c {
             '{' => Some(self.make_token(TokenType::LCurly)),
             '}' => Some(self.make_token(TokenType::RCurly)),
             '(' => Some(self.make_token(TokenType::LParen)),
@@ -318,6 +329,6 @@ impl Iterator for Lexer {
                 let err = format!("Unexpected character '{c}'");
                 Some(self.error_token(err))
             }
-        };
+        }
     }
 }
