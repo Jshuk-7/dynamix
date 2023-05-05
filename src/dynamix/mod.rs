@@ -7,8 +7,9 @@ pub mod stack;
 pub mod virtual_machine;
 
 use compiler::Compiler;
+use virtual_machine::{VirtualMachine, InterpretResult};
+
 use std::io::{stdin, stdout, Write};
-use virtual_machine::InterpretResult;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -29,9 +30,12 @@ pub fn repl() {
 pub fn run(source: &str) -> InterpretResult {
     let mut compiler = Compiler::new(source);
 
-    compiler.compile();
+    if !compiler.compile() {
+        return InterpretResult::CompileError;
+    }
 
-    InterpretResult::Ok
+    let mut vm = VirtualMachine::new();
+    vm.interpret(compiler.bytes())
 }
 
 pub fn run_file(path: &str) {

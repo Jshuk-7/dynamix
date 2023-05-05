@@ -54,7 +54,7 @@ impl ByteBlock {
         self.push(constant, line);
     }
 
-    fn push_constant(&mut self, value: Constant) -> u8 {
+    pub fn push_constant(&mut self, value: Constant) -> u8 {
         self.constants.push(value);
         self.constants.len() as u8 - 1
     }
