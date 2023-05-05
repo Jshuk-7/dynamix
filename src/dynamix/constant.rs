@@ -1,7 +1,6 @@
 use std::{fmt::Display, ops::Index};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[repr(align(4))]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum Constant {
     Number(f64),
     Bool(bool),

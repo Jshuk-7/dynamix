@@ -128,12 +128,36 @@ impl VirtualMachine {
                             self.stack.push(constant);
                         }
                     }
-                    OpCode::Null => self.stack.push(Constant::Null),
                     OpCode::True => self.stack.push(Constant::Bool(true)),
                     OpCode::False => self.stack.push(Constant::Bool(false)),
                     OpCode::Char => {
                         if let Some(constant) = self.read_constant() {
                             self.stack.push(constant);
+                        }
+                    }
+                    OpCode::Null => self.stack.push(Constant::Null),
+                    OpCode::Equal => {
+                        if let Some(rhs) = self.stack.pop() {
+                            if let Some(lhs) = self.stack.pop() {
+                                let equal = lhs == rhs;
+                                self.stack.push(Constant::Bool(equal));
+                            }
+                        }
+                    }
+                    OpCode::Greater => {
+                        if let Some(rhs) = self.stack.pop() {
+                            if let Some(lhs) = self.stack.pop() {
+                                let greater = lhs > rhs;
+                                self.stack.push(Constant::Bool(greater));
+                            }
+                        }
+                    }
+                    OpCode::Less => {
+                        if let Some(rhs) = self.stack.pop() {
+                            if let Some(lhs) = self.stack.pop() {
+                                let less = lhs < rhs;
+                                self.stack.push(Constant::Bool(less));
+                            }
                         }
                     }
                     OpCode::Negate => {
@@ -146,6 +170,11 @@ impl VirtualMachine {
                                     break;
                                 }
                             }
+                        }
+                    }
+                    OpCode::Not => {
+                        if let Some(constant) = self.stack.pop() {
+                            self.stack.push(self.is_falsey(constant));
                         }
                     }
                     OpCode::Add => binary_op!(self, +, result),
@@ -165,6 +194,15 @@ impl VirtualMachine {
         }
 
         result
+    }
+
+    fn is_falsey(&self, constant: Constant) -> Constant {
+        match constant {
+            Constant::Number(x) => Constant::Bool(x == 0.0),
+            Constant::Bool(x) => Constant::Bool(!x),
+            Constant::Char(..) => Constant::Bool(false),
+            Constant::Null => Constant::Bool(true),
+        }
     }
 
     fn runtime_error(&mut self, msg: String) {

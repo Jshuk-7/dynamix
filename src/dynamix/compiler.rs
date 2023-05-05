@@ -167,7 +167,7 @@ impl<'a> Compiler<'a> {
                 (
                     TokenType::Bang,
                     ParseRule {
-                        prefix: None,
+                        prefix: Some(Box::new(Compiler::unary)),
                         infix: None,
                         precedence: Precedence::None,
                     },
@@ -176,8 +176,8 @@ impl<'a> Compiler<'a> {
                     TokenType::BangEq,
                     ParseRule {
                         prefix: None,
-                        infix: None,
-                        precedence: Precedence::None,
+                        infix: Some(Box::new(Compiler::binary)),
+                        precedence: Precedence::Equality,
                     },
                 ),
                 (
@@ -192,48 +192,40 @@ impl<'a> Compiler<'a> {
                     TokenType::EqEq,
                     ParseRule {
                         prefix: None,
-                        infix: None,
-                        precedence: Precedence::None,
+                        infix: Some(Box::new(Compiler::binary)),
+                        precedence: Precedence::Equality,
                     },
                 ),
                 (
                     TokenType::Gt,
                     ParseRule {
                         prefix: None,
-                        infix: None,
-                        precedence: Precedence::None,
+                        infix: Some(Box::new(Compiler::binary)),
+                        precedence: Precedence::Comparison,
                     },
                 ),
                 (
                     TokenType::Gte,
                     ParseRule {
                         prefix: None,
-                        infix: None,
-                        precedence: Precedence::None,
-                    },
-                ),
-                (
-                    TokenType::Gte,
-                    ParseRule {
-                        prefix: None,
-                        infix: None,
-                        precedence: Precedence::None,
+                        infix: Some(Box::new(Compiler::binary)),
+                        precedence: Precedence::Comparison,
                     },
                 ),
                 (
                     TokenType::Lt,
                     ParseRule {
                         prefix: None,
-                        infix: None,
-                        precedence: Precedence::None,
+                        infix: Some(Box::new(Compiler::binary)),
+                        precedence: Precedence::Comparison,
                     },
                 ),
                 (
                     TokenType::Lte,
                     ParseRule {
                         prefix: None,
-                        infix: None,
-                        precedence: Precedence::None,
+                        infix: Some(Box::new(Compiler::binary)),
+                        precedence: Precedence::Comparison,
                     },
                 ),
                 (
@@ -466,20 +458,34 @@ impl<'a> Compiler<'a> {
             Some((precedence, operator)) => {
                 self.parse_precedence(Precedence::from_u32(precedence as u32 + 1));
 
-                if let TokenType::Plus = operator {
-                    self.emit_byte(OpCode::Add as u8);
-                } else if let TokenType::Minus = operator {
-                    self.emit_byte(OpCode::Sub as u8);
-                } else if let TokenType::Star = operator {
-                    self.emit_byte(OpCode::Mul as u8);
-                } else if let TokenType::Slash = operator {
-                    self.emit_byte(OpCode::Div as u8);
-                } else {
-                    let err = format!(
-                        "Expected operator '+-*/' found '{}'",
-                        self.parser.previous.lexeme
-                    );
-                    self.error(&err);
+                match operator {
+                    TokenType::Plus => self.emit_byte(OpCode::Add as u8),
+                    TokenType::Minus => self.emit_byte(OpCode::Sub as u8),
+                    TokenType::Star => self.emit_byte(OpCode::Mul as u8),
+                    TokenType::Slash => self.emit_byte(OpCode::Div as u8),
+                    TokenType::BangEq => {
+                        self.emit_byte(OpCode::Equal as u8);
+                        self.emit_byte(OpCode::Not as u8);
+                    }
+                    TokenType::EqEq => self.emit_byte(OpCode::Equal as u8),
+                    TokenType::Gt => self.emit_byte(OpCode::Greater as u8),
+                    TokenType::Gte => {
+                        self.emit_byte(OpCode::Less as u8);
+                        self.emit_byte(OpCode::Not as u8);
+                    }
+                    TokenType::Lt => self.emit_byte(OpCode::Less as u8),
+                    TokenType::Lte => {
+                        self.emit_byte(OpCode::Greater as u8);
+                        self.emit_byte(OpCode::Not as u8);
+                    }
+                    _ => {
+                        let err = format!(
+                            "Expected operator '+-*/' found '{}'",
+                            self.parser.previous.lexeme
+                        );
+
+                        self.error(&err);
+                    }
                 }
             }
             None => {
@@ -487,6 +493,7 @@ impl<'a> Compiler<'a> {
                     "Expected operator '+-*/' found '{}'",
                     self.parser.previous.lexeme
                 );
+
                 self.error(&err);
             }
         }
@@ -519,6 +526,8 @@ impl<'a> Compiler<'a> {
 
         if let TokenType::Minus = operator {
             self.emit_byte(OpCode::Negate as u8);
+        } else if let TokenType::Bang = operator {
+            self.emit_byte(OpCode::Not as u8);
         } else {
             let err = format!(
                 "Expected unary operator '-' or '!' found '{}'",
