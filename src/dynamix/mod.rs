@@ -7,7 +7,7 @@ pub mod stack;
 pub mod virtual_machine;
 
 use compiler::Compiler;
-use virtual_machine::{VirtualMachine, InterpretResult};
+use virtual_machine::{InterpretResult, VirtualMachine};
 
 use std::io::{stdin, stdout, Write};
 

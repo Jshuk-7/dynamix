@@ -3,13 +3,19 @@ use std::{fmt::Display, ops::Index};
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[repr(align(4))]
 pub enum Constant {
-    Double(f64),
+    Number(f64),
+    Bool(bool),
+    Char(char),
+    Null,
 }
 
 impl Display for Constant {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Constant::Double(x) => write!(f, "'{x}'"),
+            Constant::Number(x) => write!(f, "'{x}'"),
+            Constant::Bool(x) => write!(f, "'{x}'"),
+            Constant::Char(c) => write!(f, "'{c}'"),
+            Constant::Null => write!(f, "'null'"),
         }
     }
 }

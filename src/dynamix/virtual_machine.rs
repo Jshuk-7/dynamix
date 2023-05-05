@@ -15,7 +15,7 @@ const STACK_STARTING_CAP: usize = 256;
 
 pub struct VirtualMachine {
     block: ByteBlock,
-    ip: *mut u8,
+    ip: *const u8,
     origin: *const u8,
     stack: Stack<Constant>,
 }
@@ -24,9 +24,9 @@ macro_rules! binary_op {
     ($self:expr, $op:tt, $result:expr) => {
         if let Some(rhs) = $self.stack.pop() {
             if let Some(lhs) = $self.stack.pop() {
-                if let Constant::Double(x) = lhs {
-                    if let Constant::Double(y) = rhs {
-                        $self.stack.push(Constant::Double(x $op y))
+                if let Constant::Number(x) = lhs {
+                    if let Constant::Number(y) = rhs {
+                        $self.stack.push(Constant::Number(x $op y))
                     }
                 }
             } else {
@@ -44,8 +44,8 @@ impl VirtualMachine {
     pub fn new() -> Self {
         Self {
             block: ByteBlock::new(),
-            ip: std::ptr::null_mut::<u8>(),
-            origin: std::ptr::null_mut::<u8>(),
+            ip: std::ptr::null::<u8>(),
+            origin: std::ptr::null::<u8>(),
             stack: Stack::new(STACK_STARTING_CAP),
         }
     }
@@ -105,7 +105,7 @@ impl VirtualMachine {
                         slot = slot.add(1);
                     }
                 }
-                println!("");
+                println!();
                 Disassembler::disassemble_instruction(&self.block, &mut offset);
             }
 
@@ -128,10 +128,23 @@ impl VirtualMachine {
                             self.stack.push(constant);
                         }
                     }
+                    OpCode::Null => self.stack.push(Constant::Null),
+                    OpCode::True => self.stack.push(Constant::Bool(true)),
+                    OpCode::False => self.stack.push(Constant::Bool(false)),
+                    OpCode::Char => {
+                        if let Some(constant) = self.read_constant() {
+                            self.stack.push(constant);
+                        }
+                    }
                     OpCode::Negate => {
                         if let Some(constant) = self.stack.pop() {
                             match constant {
-                                Constant::Double(x) => self.stack.push(Constant::Double(-x)),
+                                Constant::Number(x) => self.stack.push(Constant::Number(-x)),
+                                _ => {
+                                    self.runtime_error("Operand must be a number".to_string());
+                                    result = InterpretResult::RuntimeError;
+                                    break;
+                                }
                             }
                         }
                     }
@@ -152,6 +165,13 @@ impl VirtualMachine {
         }
 
         result
+    }
+
+    fn runtime_error(&mut self, msg: String) {
+        let instruction = self.ip as usize - self.origin as usize;
+        let line = self.block.lines[instruction];
+        println!("[line:{line:2}] Runtime Error: {msg}");
+        self.stack.clear();
     }
 }
 

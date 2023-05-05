@@ -61,7 +61,7 @@ impl Token {
         Self {
             typ3: TokenType::Ident,
             lexeme: String::new(),
-            line: 0,
+            line: 1,
         }
     }
 }
@@ -74,7 +74,11 @@ impl Default for Token {
 
 impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[{:8} line:{:2} {:?}]", self.lexeme, self.line, self.typ3)
+        write!(
+            f,
+            "[{:8} line:{:2} {:?}]",
+            self.lexeme, self.line, self.typ3
+        )
     }
 }
 
@@ -90,7 +94,7 @@ pub struct Lexer<'a> {
 impl<'a> Lexer<'a> {
     pub fn new(source: &'a str) -> Self {
         Self {
-            source: source,
+            source,
             chars: source.chars().collect(),
             start: 0,
             cursor: 0,

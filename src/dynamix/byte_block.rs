@@ -4,6 +4,10 @@ use crate::constant::{Constant, ConstantPool};
 pub enum OpCode {
     Constant,
     ConstantLong,
+    True,
+    False,
+    Char,
+    Null,
     Negate,
     Add,
     Sub,
@@ -12,18 +16,26 @@ pub enum OpCode {
     Return,
 }
 
+pub enum OpError {
+    BadConversion,
+}
+
 impl OpCode {
-    pub fn from(value: u8) -> Result<Self, ()> {
+    pub fn from(value: u8) -> Result<Self, OpError> {
         match value {
             value if value == OpCode::Constant as u8 => Ok(OpCode::Constant),
             value if value == OpCode::ConstantLong as u8 => Ok(OpCode::ConstantLong),
+            value if value == OpCode::True as u8 => Ok(OpCode::True),
+            value if value == OpCode::False as u8 => Ok(OpCode::False),
+            value if value == OpCode::Char as u8 => Ok(OpCode::Char),
+            value if value == OpCode::Null as u8 => Ok(OpCode::Null),
             value if value == OpCode::Negate as u8 => Ok(OpCode::Negate),
             value if value == OpCode::Add as u8 => Ok(OpCode::Add),
             value if value == OpCode::Sub as u8 => Ok(OpCode::Sub),
             value if value == OpCode::Mul as u8 => Ok(OpCode::Mul),
             value if value == OpCode::Div as u8 => Ok(OpCode::Div),
             value if value == OpCode::Return as u8 => Ok(OpCode::Return),
-            _ => Err(()),
+            _ => Err(OpError::BadConversion),
         }
     }
 }

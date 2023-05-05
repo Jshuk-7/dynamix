@@ -263,7 +263,7 @@ impl<'a> Compiler<'a> {
                 (
                     TokenType::Char,
                     ParseRule {
-                        prefix: None,
+                        prefix: Some(Box::new(Compiler::character)),
                         infix: None,
                         precedence: Precedence::None,
                     },
@@ -295,7 +295,7 @@ impl<'a> Compiler<'a> {
                 (
                     TokenType::False,
                     ParseRule {
-                        prefix: None,
+                        prefix: Some(Box::new(Compiler::literal)),
                         infix: None,
                         precedence: Precedence::None,
                     },
@@ -327,7 +327,7 @@ impl<'a> Compiler<'a> {
                 (
                     TokenType::Null,
                     ParseRule {
-                        prefix: None,
+                        prefix: Some(Box::new(Compiler::literal)),
                         infix: None,
                         precedence: Precedence::None,
                     },
@@ -375,7 +375,7 @@ impl<'a> Compiler<'a> {
                 (
                     TokenType::True,
                     ParseRule {
-                        prefix: None,
+                        prefix: Some(Box::new(Compiler::literal)),
                         infix: None,
                         precedence: Precedence::None,
                     },
@@ -425,10 +425,8 @@ impl<'a> Compiler<'a> {
         self.emit_return();
         self.consume(TokenType::Eof, "Expected end of expression".to_string());
 
-        if cfg!(debug_assertions) && cfg!(feature = "debug-print") {
-            if !self.parser.had_error {
-                Disassembler::disassemble(&self.block, "code");
-            }
+        if !self.parser.had_error && cfg!(debug_assertions) && cfg!(feature = "debug-print") {
+            Disassembler::disassemble(&self.block, "code");
         }
 
         !self.parser.had_error
@@ -494,9 +492,23 @@ impl<'a> Compiler<'a> {
         }
     }
 
+    fn literal(&mut self) {
+        match self.parser.previous.typ3 {
+            TokenType::False => self.emit_byte(OpCode::False as u8),
+            TokenType::True => self.emit_byte(OpCode::True as u8),
+            TokenType::Null => self.emit_byte(OpCode::Null as u8),
+            _ => unreachable!(),
+        }
+    }
+
     fn number(&mut self) {
         let value = self.parser.previous.lexeme.parse::<f64>().unwrap();
-        self.emit_constant(Constant::Double(value));
+        self.emit_constant(Constant::Number(value));
+    }
+
+    fn character(&mut self) {
+        let value = self.parser.previous.lexeme.parse::<char>().unwrap();
+        self.emit_constant(Constant::Char(value));
     }
 
     fn unary(&mut self) {
@@ -522,7 +534,13 @@ impl<'a> Compiler<'a> {
         if let Some(rule) = self.parse_rules.get(&(self.parser.previous.typ3 as u32)) {
             match rule.prefix.clone() {
                 Some(func) => func(self),
-                None => self.error(&"Expected expression".to_string()),
+                None => {
+                    let err = format!(
+                        "Expected expression found '{}'",
+                        self.parser.previous.lexeme
+                    );
+                    self.error(&err);
+                }
             }
         }
 
@@ -553,19 +571,13 @@ impl<'a> Compiler<'a> {
 
     fn get_operator_precedence(&self) -> Option<(Precedence, TokenType)> {
         let operator = self.parser.previous.typ3;
-        match self.parse_rules.get(&(operator as u32)) {
-            Some(rule) => Some((rule.precedence, operator)),
-            None => None,
-        }
+        self.parse_rules
+            .get(&(operator as u32))
+            .map(|rule| (rule.precedence, operator))
     }
 
     fn emit_byte(&mut self, byte: u8) {
         self.block.push(byte, self.parser.previous.line as u32);
-    }
-
-    fn emit_bytes(&mut self, byte1: u8, byte2: u8) {
-        self.emit_byte(byte1);
-        self.emit_byte(byte2);
     }
 
     fn emit_return(&mut self) {
@@ -575,7 +587,7 @@ impl<'a> Compiler<'a> {
     fn make_constant(&mut self, constant: Constant) -> u8 {
         let index = self.block.push_constant(constant);
 
-        if index > u8::MAX {
+        if index == u8::MAX {
             self.error(&"Too many constants in one block".to_string());
             return 0;
         }
@@ -604,7 +616,8 @@ impl<'a> Compiler<'a> {
             self.parser.panic_mode = true;
         }
 
-        print!("[line:{:2}] Error:", token.line);
+        let line = token.line;
+        print!("[line:{line:2}] Compiler Error:");
 
         if let TokenType::Eof = token.typ3 {
             print!(" at end");

@@ -63,8 +63,11 @@ impl Disassembler {
                 OpCode::ConstantLong => {
                     Disassembler::constant_long_instruction(block, "OP_CONSTANT_LONG", offset)
                 }
+                OpCode::True => Disassembler::simple_instruction("OP_TRUE", offset),
+                OpCode::False => Disassembler::simple_instruction("OP_FALSE", offset),
+                OpCode::Null => Disassembler::simple_instruction("OP_NULL", offset),
+                OpCode::Char => Disassembler::simple_instruction("OP_CHAR", offset),
                 OpCode::Negate => Disassembler::simple_instruction("OP_NEGATE", offset),
-
                 OpCode::Add => Disassembler::simple_instruction("OP_ADD", offset),
                 OpCode::Sub => Disassembler::simple_instruction("OP_SUB", offset),
                 OpCode::Mul => Disassembler::simple_instruction("OP_MUL", offset),
