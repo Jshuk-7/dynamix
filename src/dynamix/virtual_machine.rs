@@ -20,21 +20,15 @@ pub struct VirtualMachine {
     stack: Stack<Constant>,
 }
 
-macro_rules! complete_binary {
-    ($self:expr, $op:tt, $lhs:expr, $rhs:expr) => {
-        if let Constant::Double(x) = $lhs {
-            if let Constant::Double(y) = $rhs {
-                $self.stack.push(Constant::Double(x $op y))
-            }
-        }
-    };
-}
-
 macro_rules! binary_op {
     ($self:expr, $op:tt, $result:expr) => {
         if let Some(rhs) = $self.stack.pop() {
             if let Some(lhs) = $self.stack.pop() {
-                complete_binary!($self, $op, lhs, rhs)
+                if let Constant::Double(x) = lhs {
+                    if let Constant::Double(y) = rhs {
+                        $self.stack.push(Constant::Double(x $op y))
+                    }
+                }
             } else {
                 $result = InterpretResult::RuntimeError;
                 break;
@@ -42,7 +36,7 @@ macro_rules! binary_op {
         } else {
             $result = InterpretResult::RuntimeError;
             break;
-        };
+        }
     };
 }
 
