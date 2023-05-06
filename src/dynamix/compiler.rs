@@ -765,20 +765,20 @@ impl<'a> Compiler<'a> {
 
         for local in self.locals.clone().by_ref() {
             if local.depth != -1 && local.depth < self.scope_depth as isize {
-                return;
+                break;
             }
-
+            
             if self.identifiers_equal(&name, &local.name) {
                 let err = format!("Redefined variable '{name}' in the same scope");
                 self.error(&err);
             }
         }
-
+        
         let local = Local {
             name: name.clone(),
             depth: self.scope_depth as isize,
         };
-
+        
         self.locals.push(local);
     }
 
