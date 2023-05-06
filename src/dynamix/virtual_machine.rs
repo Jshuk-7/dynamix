@@ -32,27 +32,34 @@ macro_rules! binary_op {
                         break;
                     }
                 } else if let Constant::Obj(x) = lhs.clone() {
-                    if let Constant::Obj(y) = rhs.clone() {
-                        if lhs.type_to_string() != rhs.type_to_string() {
-                            type_mismatch($self, $op_char, lhs.type_to_string(), rhs.type_to_string());
-                            $result = InterpretResult::RuntimeError;
-                            break;
-                        }
+                    match x.typ3 {
+                        ObjectType::String => {
+                            let mut string = x.bytes.clone();
 
-                        match x.typ3 {
-                            ObjectType::String => {
-                                let mut string = x.bytes.clone();
+                            if let Constant::Obj(y) = rhs.clone() {
+                                if lhs.type_to_string() != rhs.type_to_string() {
+                                    type_mismatch($self, $op_char, lhs.type_to_string(), rhs.type_to_string());
+                                    $result = InterpretResult::RuntimeError;
+                                    break;
+                                }
+
                                 string.append(&mut y.bytes.clone());
-                                $self.stack.push(Constant::Obj(Object {
-                                    typ3: ObjectType::String,
-                                    bytes: string,
-                                }))
+                            } else if let Constant::Number(x) = rhs {
+                                let mut value = x.to_string().as_bytes().to_owned();
+                                string.append(&mut value);
+                            } else if let Constant::Char(x) = rhs {
+                                string.push(x as u8);
+                            } else {
+                                type_mismatch($self, $op_char, lhs.type_to_string(), rhs.type_to_string());
+                                $result = InterpretResult::RuntimeError;
+                                break;
                             }
+
+                            $self.stack.push(Constant::Obj(Object {
+                                typ3: ObjectType::String,
+                                bytes: string,
+                            }))
                         }
-                    } else {
-                        type_mismatch($self, $op_char, lhs.type_to_string(), rhs.type_to_string());
-                        $result = InterpretResult::RuntimeError;
-                        break;
                     }
                 } else {
                     type_mismatch($self, $op_char, lhs.type_to_string(), rhs.type_to_string());
