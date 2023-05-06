@@ -32,6 +32,22 @@ impl Constant {
             Constant::Null => "null",
         }
     }
+
+    pub fn as_number(&self) -> Option<&f64> {
+        if let Constant::Number(x) = self {
+            Some(x)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_bool(&self) -> Option<&bool> {
+        if let Constant::Bool(x) = self {
+            Some(x)
+        } else {
+            None
+        }
+    }
 }
 
 impl Display for Constant {

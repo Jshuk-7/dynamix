@@ -1,22 +1,12 @@
 {
-    let a = 10;
-    {
-        let b = "Hello";
-        {
-            let c = 'a';
-            {
-                let d = false;
-                {
-                    let e = null;
-                    {
-                        print(a);
-                        print(b);
-                        print(c);
-                        print(d);
-                        print(e);
-                    }
-                }
-            }
-        }
+    let count = 10;
+
+    if count < 20 {
+        print("Not enough!");
+        print("Not enough!");
+        print("Not enough!");
+        print("Not enough!");
+        print("Not enough!");
+        print("You need to get more!");
     }
 }

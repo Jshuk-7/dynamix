@@ -507,6 +507,27 @@ impl<'a> Compiler<'a> {
         self.emit_byte(OpCode::Pop as u8);
     }
 
+    fn if_statement(&mut self) {
+        self.expression();
+        self.consume(TokenType::LCurly, "Expected '{' after if".to_string());
+
+        let jump = self.emit_jump(OpCode::JumpIfFalse as u8);
+        self.emit_byte(OpCode::Pop as u8);
+        self.block();
+        
+        self.patch_jump(jump);
+        self.emit_byte(OpCode::Pop as u8);
+
+        if self.matches(TokenType::Else) {
+            self.consume(TokenType::LCurly, "Expected '}' after block".to_string());
+
+            self.block();
+            let else_jump = self.emit_jump(OpCode::Jmp as u8);
+
+            self.patch_jump(else_jump);
+        }
+    }
+
     fn declaration(&mut self) {
         if self.matches(TokenType::Let) {
             self.let_declaration();
@@ -522,6 +543,8 @@ impl<'a> Compiler<'a> {
     fn statement(&mut self) {
         if self.matches(TokenType::Print) {
             self.print_statement();
+        } else if self.matches(TokenType::If) {
+            self.if_statement();
         } else if self.matches(TokenType::LCurly) {
             self.begin_scope();
             self.block();
@@ -859,6 +882,13 @@ impl<'a> Compiler<'a> {
         }
     }
 
+    fn emit_jump(&mut self, instruction: u8) -> usize {
+        self.emit_byte(instruction);
+        self.emit_byte(0xff);
+        self.emit_byte(0xff);
+        self.block.bytes.len() - 2
+    }
+
     fn emit_return(&mut self) {
         self.emit_byte(OpCode::Return as u8)
     }
@@ -877,6 +907,17 @@ impl<'a> Compiler<'a> {
     fn emit_constant(&mut self, constant: Constant) {
         let index = self.make_constant(constant);
         self.emit_bytes(vec![OpCode::Constant as u8, index]);
+    }
+
+    fn patch_jump(&mut self, offset: usize) {
+        let jump = self.block.bytes.len() - offset - 2;
+
+        if jump > u16::MAX as usize {
+            self.error(&"Too much code to jump over, extract it into a function".to_string());
+        }
+
+        self.block.bytes[offset] = (jump >> 8 & 0xff) as u8;
+        self.block.bytes[offset + 1] = (jump & 0xff) as u8;
     }
 
     fn error_at_cursor(&mut self, msg: &String) {

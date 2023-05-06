@@ -125,6 +125,16 @@ impl VirtualMachine {
         }
     }
 
+    fn advance_ip_by(&mut self, count: usize) -> u8 {
+        let mut result = 0;
+
+        for _ in 0..count {
+            result = self.advance_ip();
+        }
+
+        result
+    }
+
     fn read_byte(&mut self) -> Option<u8> {
         if self.ip.is_null() {
             return None;
@@ -132,6 +142,13 @@ impl VirtualMachine {
 
         let byte = self.advance_ip();
         Some(byte)
+    }
+
+    fn read_short(&mut self) -> Option<u16> {
+        self.advance_ip_by(2);
+        let first_bit = unsafe { self.ip.sub(2) };
+        let second_bit = unsafe { self.ip.sub(1) };
+        unsafe { Some((((*first_bit as u16) << 8) as u16 | *second_bit as u16) as u16) }
     }
 
     fn read_constant(&mut self) -> Option<Constant> {
@@ -220,6 +237,21 @@ impl VirtualMachine {
                             self.stack[slot as usize] = self.stack.clone().last().unwrap();
                         }
                     }
+                    OpCode::JumpIfFalse => {
+                        if let Some(offset) = self.read_short() {
+                            let expr = self.stack.clone().last().unwrap();
+                            if let Constant::Bool(x) = self.is_falsey(expr) {
+                                if x {
+                                    self.advance_ip_by(offset as usize);
+                                }
+                            }
+                        }
+                    }
+                    OpCode::Jmp => {
+                        if let Some(offset) = self.read_short() {
+                            self.advance_ip_by(offset as usize);
+                        }
+                    }
                     OpCode::Constant => {
                         // remember OP_CONSTANT instruction 'loads' a constant onto the stack
                         if let Some(constant) = self.read_constant() {
@@ -260,13 +292,12 @@ impl VirtualMachine {
                     }
                     OpCode::Negate => {
                         if let Some(constant) = self.stack.pop() {
-                            match constant {
-                                Constant::Number(x) => self.stack.push(Constant::Number(-x)),
-                                _ => {
-                                    self.runtime_error("Operand must be a number".to_string());
-                                    result = InterpretResult::RuntimeError;
-                                    break;
-                                }
+                            if let Constant::Number(x) = constant {
+                                self.stack.push(Constant::Number(-x))
+                            } else {
+                                self.runtime_error("Operand must be a number".to_string());
+                                result = InterpretResult::RuntimeError;
+                                break;
                             }
                         }
                     }
