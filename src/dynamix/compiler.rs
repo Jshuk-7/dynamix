@@ -277,8 +277,8 @@ impl<'a> Compiler<'a> {
                     TokenType::And,
                     ParseRule {
                         prefix: None,
-                        infix: None,
-                        precedence: Precedence::None,
+                        infix: Some(Box::new(Compiler::and)),
+                        precedence: Precedence::And,
                     },
                 ),
                 (
@@ -341,8 +341,8 @@ impl<'a> Compiler<'a> {
                     TokenType::Or,
                     ParseRule {
                         prefix: None,
-                        infix: None,
-                        precedence: Precedence::None,
+                        infix: Some(Box::new(Compiler::or)),
+                        precedence: Precedence::Or,
                     },
                 ),
                 (
@@ -510,14 +510,14 @@ impl<'a> Compiler<'a> {
     fn if_statement(&mut self) {
         self.expression();
         
-        let then_jump = self.emit_jump(OpCode::JumpIfFalse as u8);
+        let then_jump = self.emit_jump(OpCode::Jz as u8);
         self.emit_byte(OpCode::Pop as u8);
         
         self.consume(TokenType::LCurly, "Expected '{' after if".to_string());
         self.block();
         
         let else_jump = self.emit_jump(OpCode::Jmp as u8);
-        
+
         self.patch_jump(then_jump);
         self.emit_byte(OpCode::Pop as u8);
 
@@ -842,6 +842,25 @@ impl<'a> Compiler<'a> {
         }
 
         self.emit_bytes(vec![OpCode::DefineGlobal as u8, global]);
+    }
+
+    fn and(&mut self, _can_assign: bool) {
+        let end_jump = self.emit_jump(OpCode::Jz as u8);
+
+        self.emit_byte(OpCode::Pop as u8);
+        self.parse_precedence(Precedence::And);
+        self.patch_jump(end_jump);
+    }
+
+    fn or(&mut self, _can_assign: bool) {
+        let else_jump = self.emit_jump(OpCode::Jz as u8);
+        let end_jump = self.emit_jump(OpCode::Jmp as u8);
+
+        self.patch_jump(else_jump);
+        self.emit_byte(OpCode::Pop as u8);
+
+        self.parse_precedence(Precedence::Or);
+        self.patch_jump(end_jump);
     }
 
     fn consume(&mut self, typ3: TokenType, msg: String) {

@@ -238,7 +238,7 @@ impl VirtualMachine {
                             self.stack[slot as usize] = self.stack.clone().last().unwrap();
                         }
                     }
-                    OpCode::JumpIfFalse => {
+                    OpCode::Jz => {
                         if let Some(offset) = self.read_short() {
                             let expr = self.stack.clone().last().unwrap();
                             if let Constant::Bool(x) = self.is_falsey(expr) {
