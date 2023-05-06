@@ -1,11 +1,12 @@
-use std::collections::HashMap;
-
 use crate::{
     byte_block::{ByteBlock, OpCode},
     constant::{Constant, Object, ObjectType},
     disassembler::Disassembler,
     lexer::{Lexer, Token, TokenType},
+    stack::Stack,
 };
+
+use std::collections::HashMap;
 
 struct Parser {
     cursor: Token,
@@ -57,10 +58,19 @@ struct ParseRule<'a> {
     precedence: Precedence,
 }
 
+struct Local {
+    name: Token,
+    depth: usize,
+}
+
+const LOCALS_MAX_SIZE: usize = 256;
+
 pub struct Compiler<'a> {
     lexer: Lexer<'a>,
     parser: Parser,
     block: ByteBlock,
+    locals: Stack<Local>,
+    scope_depth: usize,
     parse_rules: HashMap<u32, ParseRule<'a>>,
 }
 
@@ -75,6 +85,8 @@ impl<'a> Compiler<'a> {
                 panic_mode: false,
             },
             block: ByteBlock::new(),
+            locals: Stack::new(LOCALS_MAX_SIZE),
+            scope_depth: 0,
             parse_rules: vec![
                 (
                     TokenType::LParen,
@@ -449,6 +461,14 @@ impl<'a> Compiler<'a> {
         self.parse_precedence(Precedence::Assignment)
     }
 
+    fn block(&mut self) {
+        while !self.check(TokenType::RCurly) && !self.check(TokenType::Eof) {
+            self.declaration();
+        }
+
+        self.consume(TokenType::RCurly, "Expected '}' after block".to_string());
+    }
+
     fn let_declaration(&mut self) {
         let global = self.parse_variable("Expected variable name".to_string());
 
@@ -501,6 +521,10 @@ impl<'a> Compiler<'a> {
     fn statement(&mut self) {
         if self.matches(TokenType::Print) {
             self.print_statement();
+        } else if self.matches(TokenType::LCurly) {
+            self.begin_scope();
+            self.block();
+            self.end_scope();
         } else {
             self.expression_statement();
         }
@@ -580,6 +604,16 @@ impl<'a> Compiler<'a> {
             TokenType::Null => self.emit_byte(OpCode::Null as u8),
             _ => unreachable!(),
         }
+    }
+
+    fn begin_scope(&mut self) -> usize {
+        self.scope_depth += 1;
+        self.scope_depth
+    }
+
+    fn end_scope(&mut self) -> usize {
+        self.scope_depth -= 1;
+        self.scope_depth
     }
 
     fn named_variable(&mut self, name: Token, can_assign: bool) {
