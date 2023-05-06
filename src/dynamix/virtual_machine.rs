@@ -77,6 +77,7 @@ macro_rules! binary_op {
 
 const STACK_STARTING_CAP: usize = 256;
 
+#[derive(Debug, Clone, Copy)]
 pub enum InterpretResult {
     Ok,
     CompileError,

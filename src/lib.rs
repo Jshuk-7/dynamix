@@ -1,3 +1,4 @@
 mod dynamix;
+mod tests;
 
-pub use dynamix::*;
+pub use self::dynamix::*;

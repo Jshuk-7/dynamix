@@ -509,23 +509,24 @@ impl<'a> Compiler<'a> {
 
     fn if_statement(&mut self) {
         self.expression();
-        self.consume(TokenType::LCurly, "Expected '{' after if".to_string());
-
-        let jump = self.emit_jump(OpCode::JumpIfFalse as u8);
+        
+        let then_jump = self.emit_jump(OpCode::JumpIfFalse as u8);
         self.emit_byte(OpCode::Pop as u8);
+        
+        self.consume(TokenType::LCurly, "Expected '{' after if".to_string());
         self.block();
         
-        self.patch_jump(jump);
+        let else_jump = self.emit_jump(OpCode::Jmp as u8);
+        
+        self.patch_jump(then_jump);
         self.emit_byte(OpCode::Pop as u8);
 
         if self.matches(TokenType::Else) {
             self.consume(TokenType::LCurly, "Expected '}' after block".to_string());
-
             self.block();
-            let else_jump = self.emit_jump(OpCode::Jmp as u8);
-
-            self.patch_jump(else_jump);
         }
+        
+        self.patch_jump(else_jump);
     }
 
     fn declaration(&mut self) {
@@ -796,7 +797,7 @@ impl<'a> Compiler<'a> {
             }
 
             if self.identifiers_equal(name, &local.name) {
-                let err = format!("Redefined variable '{name}' in the same scope");
+                let err = format!("Redefined variable '{}' in the same scope", name.lexeme);
                 self.error(&err);
             }
         }

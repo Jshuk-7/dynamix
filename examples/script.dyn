@@ -1,0 +1,11 @@
+{
+    let a = 10;
+
+    if a == 10 {
+        print(a);
+        print(a);
+    } else {
+        print("Not a");
+        print("Not a");
+    }
+}

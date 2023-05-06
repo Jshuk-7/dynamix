@@ -18,6 +18,18 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub type RuntimeResult = (InterpretResult, String);
 
+pub fn runtime_start() {
+    let mut args = std::env::args();
+
+    match args.len() {
+        1 => repl(),
+        2 | 3 | 4 => {
+            let (..) = run_file(&args.nth(1).unwrap()).unwrap();
+        }
+        _ => print_usage(),
+    }
+}
+
 pub fn repl() {
     println!(
         "Welcome to Dynamix {VERSION}, running {} on platform {}",
@@ -63,17 +75,19 @@ pub fn run(source: &str) -> RuntimeResult {
     (result, error)
 }
 
-pub fn run_file(path: &str) {
+pub fn run_file(path: &str) -> Result<RuntimeResult, ()> {
     if let Ok(source) = std::fs::read_to_string(path) {
         let (result, error) = run(&source);
         let filename = Path::new(path).file_stem().unwrap().to_str().unwrap();
-        print_result(result, filename, error);
+        print_result(result, filename, error.clone());
+        Ok((result, error))
     } else {
         println!("Failed to open file from path: /{path}");
+        Err(())
     }
 }
 
-fn print_result(result: InterpretResult, name: &str, error: String) {
+pub fn print_result(result: InterpretResult, name: &str, error: String) {
     match result {
         InterpretResult::Ok => println!("program exited successfully..."),
         InterpretResult::CompileError => {

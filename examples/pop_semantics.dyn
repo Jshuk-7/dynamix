@@ -1,0 +1,19 @@
+let a = 10;
+
+// trying to use a at this point will cause a runtime error,
+// because a is no longer on the stack
+pop a;
+
+print(a);
+// ---^
+// a is no longer valid, a has been popped
+
+// what we are allowed to do is define a new variable
+// with the same name because there
+// are no valid identifiers of 'a'
+
+// so this is valid
+{
+    let a = "Hello, World!";
+    print(a);
+}
