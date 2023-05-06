@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     byte_block::{ByteBlock, OpCode},
-    constant::Constant,
+    constant::{Constant, Object, ObjectType},
     disassembler::Disassembler,
     lexer::{Lexer, Token, TokenType},
 };
@@ -239,7 +239,7 @@ impl<'a> Compiler<'a> {
                 (
                     TokenType::String,
                     ParseRule {
-                        prefix: None,
+                        prefix: Some(Box::new(Compiler::string)),
                         infix: None,
                         precedence: Precedence::None,
                     },
@@ -506,6 +506,19 @@ impl<'a> Compiler<'a> {
             TokenType::Null => self.emit_byte(OpCode::Null as u8),
             _ => unreachable!(),
         }
+    }
+
+    fn string(&mut self) {
+        let mut value = self.parser.previous.lexeme.as_bytes().to_owned();
+        
+        // remove quotes from conversion
+        value.remove(0);
+        value.remove(value.len() - 1);
+
+        self.emit_constant(Constant::Obj(Object {
+            typ3: ObjectType::String,
+            bytes: value,
+        }));
     }
 
     fn number(&mut self) {

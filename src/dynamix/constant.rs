@@ -1,11 +1,37 @@
 use std::{fmt::Display, ops::Index};
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd)]
+pub enum ObjectType {
+    String,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd)]
+pub struct Object {
+    pub typ3: ObjectType,
+    pub bytes: Vec<u8>,
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Constant {
     Number(f64),
     Bool(bool),
     Char(char),
+    Obj(Object),
     Null,
+}
+
+impl Constant {
+    pub fn type_to_string(&self) -> &str {
+        match self {
+            Constant::Number(..) => "number",
+            Constant::Bool(..) => "bool",
+            Constant::Char(..) => "char",
+            Constant::Obj(obj) => match obj.typ3 {
+                ObjectType::String => "String",
+            },
+            Constant::Null => "null",
+        }
+    }
 }
 
 impl Display for Constant {
@@ -14,6 +40,11 @@ impl Display for Constant {
             Constant::Number(x) => write!(f, "'{x}'"),
             Constant::Bool(x) => write!(f, "'{x}'"),
             Constant::Char(c) => write!(f, "'{c}'"),
+            Constant::Obj(obj) => match obj.typ3 {
+                ObjectType::String => {
+                    write!(f, "{}", String::from_utf8(obj.bytes.clone()).unwrap())
+                }
+            },
             Constant::Null => write!(f, "'null'"),
         }
     }

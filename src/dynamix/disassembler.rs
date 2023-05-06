@@ -23,10 +23,6 @@ impl Disassembler {
         Disassembler::write_block_instruction(block, name, offset)
     }
 
-    fn constant_long_instruction(block: &ByteBlock, name: &str, offset: &mut usize) {
-        Disassembler::write_block_instruction(block, name, offset)
-    }
-
     fn simple_instruction(name: &str, offset: &mut usize) {
         println!("{name}");
         *offset += 1;
@@ -59,9 +55,6 @@ impl Disassembler {
             Ok(inst) => match inst {
                 OpCode::Constant => {
                     Disassembler::constant_instruction(block, "OP_CONSTANT", offset)
-                }
-                OpCode::ConstantLong => {
-                    Disassembler::constant_long_instruction(block, "OP_CONSTANT_LONG", offset)
                 }
                 OpCode::True => Disassembler::simple_instruction("OP_TRUE", offset),
                 OpCode::False => Disassembler::simple_instruction("OP_FALSE", offset),

@@ -1,6 +1,6 @@
 use crate::{
     byte_block::{ByteBlock, OpCode},
-    constant::Constant,
+    constant::{Constant, Object, ObjectType},
     disassembler::Disassembler,
     stack::Stack,
 };
@@ -20,22 +20,61 @@ pub struct VirtualMachine {
     stack: Stack<Constant>,
 }
 
+fn type_mismatch(vm: &mut VirtualMachine, op_char: char, lhs_type: &str, rhs_type: &str) {
+    vm.runtime_error(format!(
+        "Type mismatch, operator '{op_char}' not supported for types '{lhs_type}' and '{rhs_type}'",
+    ))
+}
+
 macro_rules! binary_op {
-    ($self:expr, $op:tt, $result:expr) => {
+    ($self:expr, $op:tt, $op_char:expr, $result:expr) => {
         if let Some(rhs) = $self.stack.pop() {
             if let Some(lhs) = $self.stack.pop() {
                 if let Constant::Number(x) = lhs {
                     if let Constant::Number(y) = rhs {
                         $self.stack.push(Constant::Number(x $op y))
+                    } else {
+                        type_mismatch($self, $op_char, lhs.type_to_string(), rhs.type_to_string());
+                        $result = InterpretResult::RuntimeError;
+                        break;
                     }
+                } else if let Constant::Char(x) = lhs {
+                    if let Constant::Char(y) = rhs {
+                        $self.stack.push(Constant::Char((x as u8 $op y as u8) as char))
+                    } else {
+                        type_mismatch($self, $op_char, lhs.type_to_string(), rhs.type_to_string());
+                        $result = InterpretResult::RuntimeError;
+                        break;
+                    }
+                } else if let Constant::Obj(x) = lhs.clone() {
+                    if let Constant::Obj(y) = rhs.clone() {
+                        if lhs.type_to_string() != rhs.type_to_string() {
+                            type_mismatch($self, $op_char, lhs.type_to_string(), rhs.type_to_string());
+                            $result = InterpretResult::RuntimeError;
+                            break;
+                        }
+
+                        match x.typ3 {
+                            ObjectType::String => {
+                                let mut string = x.bytes.clone();
+                                string.append(&mut y.bytes.clone());
+                                $self.stack.push(Constant::Obj(Object {
+                                    typ3: ObjectType::String,
+                                    bytes: string,
+                                }))
+                            }
+                        }
+                    } else {
+                        type_mismatch($self, $op_char, lhs.type_to_string(), rhs.type_to_string());
+                        $result = InterpretResult::RuntimeError;
+                        break;
+                    }
+                } else {
+                    type_mismatch($self, $op_char, lhs.type_to_string(), rhs.type_to_string());
+                    $result = InterpretResult::RuntimeError;
+                    break;
                 }
-            } else {
-                $result = InterpretResult::RuntimeError;
-                break;
-            };
-        } else {
-            $result = InterpretResult::RuntimeError;
-            break;
+            }
         }
     };
 }
@@ -82,7 +121,7 @@ impl VirtualMachine {
 
     fn read_constant(&mut self) -> Option<Constant> {
         if let Some(byte) = self.read_byte() {
-            let constant = self.block.constants[byte as usize];
+            let constant = self.block.constants[byte as usize].clone();
             return Some(constant);
         }
 
@@ -119,11 +158,6 @@ impl VirtualMachine {
                 Ok(opcode) => match opcode {
                     OpCode::Constant => {
                         // remember OP_CONSTANT instruction 'loads' a constant onto the stack
-                        if let Some(constant) = self.read_constant() {
-                            self.stack.push(constant);
-                        }
-                    }
-                    OpCode::ConstantLong => {
                         if let Some(constant) = self.read_constant() {
                             self.stack.push(constant);
                         }
@@ -177,10 +211,10 @@ impl VirtualMachine {
                             self.stack.push(self.is_falsey(constant));
                         }
                     }
-                    OpCode::Add => binary_op!(self, +, result),
-                    OpCode::Sub => binary_op!(self, -, result),
-                    OpCode::Mul => binary_op!(self, *, result),
-                    OpCode::Div => binary_op!(self, /, result),
+                    OpCode::Add => binary_op!(self, +, '+',result),
+                    OpCode::Sub => binary_op!(self, -, '-',result),
+                    OpCode::Mul => binary_op!(self, *, '*',result),
+                    OpCode::Div => binary_op!(self, /, '/',result),
                     OpCode::Return => {
                         if let Some(constant) = self.stack.pop() {
                             println!("{constant}");
@@ -201,6 +235,7 @@ impl VirtualMachine {
             Constant::Number(x) => Constant::Bool(x == 0.0),
             Constant::Bool(x) => Constant::Bool(!x),
             Constant::Char(..) => Constant::Bool(false),
+            Constant::Obj(obj) => Constant::Bool(obj.bytes.is_empty()),
             Constant::Null => Constant::Bool(true),
         }
     }

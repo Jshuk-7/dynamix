@@ -11,7 +11,7 @@ path = "src/lib.rs"
 stack-trace = []
 debug-print = []
 
-default = ["stack-trace", "debug-print"]
+default = ["debug-print"]
 
 [[bin]]
 name = "testbed"
