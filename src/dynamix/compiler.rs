@@ -49,7 +49,7 @@ impl Precedence {
     }
 }
 
-type ParseFn<'a> = fn(&mut Compiler<'a>);
+type ParseFn<'a> = fn(&mut Compiler<'a>, bool);
 
 struct ParseRule<'a> {
     prefix: Option<Box<ParseFn<'a>>>,
@@ -231,7 +231,7 @@ impl<'a> Compiler<'a> {
                 (
                     TokenType::Ident,
                     ParseRule {
-                        prefix: None,
+                        prefix: Some(Box::new(Compiler::variable)),
                         infix: None,
                         precedence: Precedence::None,
                     },
@@ -413,7 +413,11 @@ impl<'a> Compiler<'a> {
 
     pub fn compile(&mut self) -> bool {
         self.advance();
-        self.expression();
+
+        while !self.matches(TokenType::Eof) {
+            self.declaration();
+        }
+
         self.emit_return();
         self.consume(TokenType::Eof, "Expected end of expression".to_string());
 
@@ -445,7 +449,82 @@ impl<'a> Compiler<'a> {
         self.parse_precedence(Precedence::Assignment)
     }
 
-    fn grouping(&mut self) {
+    fn let_declaration(&mut self) {
+        let global = self.parse_variable("Expected variable name".to_string());
+
+        if self.matches(TokenType::Eq) {
+            self.expression();
+        } else {
+            self.emit_byte(OpCode::Null as u8);
+        }
+
+        self.consume(
+            TokenType::Semicolon,
+            "Expected ';' after expression".to_string(),
+        );
+
+        self.define_variable(global);
+    }
+
+    fn print_statement(&mut self) {
+        self.expression();
+        self.consume(
+            TokenType::Semicolon,
+            "Expected ';' after expression".to_string(),
+        );
+
+        self.emit_byte(OpCode::Print as u8);
+    }
+
+    fn expression_statement(&mut self) {
+        self.expression();
+        self.consume(
+            TokenType::Semicolon,
+            "Expected ';' after expression".to_string(),
+        );
+
+        self.emit_byte(OpCode::Pop as u8);
+    }
+
+    fn declaration(&mut self) {
+        if self.matches(TokenType::Let) {
+            self.let_declaration();
+        } else {
+            self.statement();
+        }
+
+        if self.parser.panic_mode {
+            self.synchronize();
+        }
+    }
+
+    fn statement(&mut self) {
+        if self.matches(TokenType::Print) {
+            self.print_statement();
+        } else {
+            self.expression_statement();
+        }
+    }
+
+    fn synchronize(&mut self) {
+        self.parser.panic_mode = false;
+
+        while self.parser.cursor.typ3 != TokenType::Eof {
+            if let TokenType::Semicolon = self.parser.previous.typ3 {
+                break;
+            }
+
+            use TokenType::*;
+            match self.parser.cursor.typ3 {
+                Struct | Fun | For | If | While | Let | Print | Return => break,
+                _ => (),
+            }
+
+            self.advance();
+        }
+    }
+
+    fn grouping(&mut self, _can_assign: bool) {
         self.expression();
         self.consume(
             TokenType::RParen,
@@ -453,7 +532,7 @@ impl<'a> Compiler<'a> {
         );
     }
 
-    fn binary(&mut self) {
+    fn binary(&mut self, _can_assign: bool) {
         match self.get_operator_precedence() {
             Some((precedence, operator)) => {
                 self.parse_precedence(Precedence::from_u32(precedence as u32 + 1));
@@ -464,19 +543,14 @@ impl<'a> Compiler<'a> {
                     TokenType::Star => self.emit_byte(OpCode::Mul as u8),
                     TokenType::Slash => self.emit_byte(OpCode::Div as u8),
                     TokenType::BangEq => {
-                        self.emit_byte(OpCode::Equal as u8);
-                        self.emit_byte(OpCode::Not as u8);
+                        self.emit_bytes(vec![OpCode::Equal as u8, OpCode::Not as u8])
                     }
                     TokenType::EqEq => self.emit_byte(OpCode::Equal as u8),
                     TokenType::Gt => self.emit_byte(OpCode::Greater as u8),
-                    TokenType::Gte => {
-                        self.emit_byte(OpCode::Less as u8);
-                        self.emit_byte(OpCode::Not as u8);
-                    }
+                    TokenType::Gte => self.emit_bytes(vec![OpCode::Less as u8, OpCode::Not as u8]),
                     TokenType::Lt => self.emit_byte(OpCode::Less as u8),
                     TokenType::Lte => {
-                        self.emit_byte(OpCode::Greater as u8);
-                        self.emit_byte(OpCode::Not as u8);
+                        self.emit_bytes(vec![OpCode::Greater as u8, OpCode::Not as u8])
                     }
                     _ => {
                         let err = format!(
@@ -499,7 +573,7 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    fn literal(&mut self) {
+    fn literal(&mut self, _can_assign: bool) {
         match self.parser.previous.typ3 {
             TokenType::False => self.emit_byte(OpCode::False as u8),
             TokenType::True => self.emit_byte(OpCode::True as u8),
@@ -508,9 +582,24 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    fn string(&mut self) {
+    fn named_variable(&mut self, name: Token, can_assign: bool) {
+        let arg = self.identifier_constant(&name);
+
+        if can_assign && self.matches(TokenType::Eq) {
+            self.expression();
+            self.emit_bytes(vec![OpCode::SetGlobal as u8, arg]);
+        } else {
+            self.emit_bytes(vec![OpCode::GetGlobal as u8, arg]);
+        }
+    }
+
+    fn variable(&mut self, can_assign: bool) {
+        self.named_variable(self.parser.previous.clone(), can_assign);
+    }
+
+    fn string(&mut self, _can_assign: bool) {
         let mut value = self.parser.previous.lexeme.as_bytes().to_owned();
-        
+
         // remove quotes from conversion
         value.remove(0);
         value.remove(value.len() - 1);
@@ -521,17 +610,17 @@ impl<'a> Compiler<'a> {
         }));
     }
 
-    fn number(&mut self) {
+    fn number(&mut self, _can_assign: bool) {
         let value = self.parser.previous.lexeme.parse::<f64>().unwrap();
         self.emit_constant(Constant::Number(value));
     }
 
-    fn character(&mut self) {
+    fn character(&mut self, _can_assign: bool) {
         let value = self.parser.previous.lexeme.parse::<char>().unwrap();
         self.emit_constant(Constant::Char(value));
     }
 
-    fn unary(&mut self) {
+    fn unary(&mut self, _can_assign: bool) {
         let operator = self.parser.previous.typ3;
 
         // compile operand
@@ -546,6 +635,7 @@ impl<'a> Compiler<'a> {
                 "Expected unary operator '-' or '!' found '{}'",
                 self.parser.previous.lexeme
             );
+
             self.error(&err);
         }
     }
@@ -553,9 +643,11 @@ impl<'a> Compiler<'a> {
     fn parse_precedence(&mut self, precedence: Precedence) {
         self.advance();
 
+        let can_assign = precedence <= Precedence::Assignment;
+
         if let Some(rule) = self.parse_rules.get(&(self.parser.previous.typ3 as u32)) {
             match rule.prefix.clone() {
-                Some(func) => func(self),
+                Some(func) => func(self, can_assign),
                 None => {
                     let err = format!(
                         "Expected expression found '{}'",
@@ -572,7 +664,7 @@ impl<'a> Compiler<'a> {
 
                 if let Some(rule) = self.parse_rules.get(&(self.parser.previous.typ3 as u32)) {
                     match rule.infix.clone() {
-                        Some(func) => func(self),
+                        Some(func) => func(self, can_assign),
                         None => break,
                     }
                 }
@@ -580,6 +672,26 @@ impl<'a> Compiler<'a> {
                 break;
             }
         }
+
+        if can_assign && self.matches(TokenType::Eq) {
+            self.error(&"Invalid assignment target".to_string());
+        }
+    }
+
+    fn identifier_constant(&mut self, name: &Token) -> u8 {
+        self.make_constant(Constant::Obj(Object {
+            typ3: ObjectType::String,
+            bytes: name.lexeme.bytes().collect(),
+        }))
+    }
+
+    fn parse_variable(&mut self, error: String) -> u8 {
+        self.consume(TokenType::Ident, error);
+        self.identifier_constant(&self.parser.previous.clone())
+    }
+
+    fn define_variable(&mut self, global: u8) {
+        self.emit_bytes(vec![OpCode::DefineGlobal as u8, global]);
     }
 
     fn consume(&mut self, typ3: TokenType, msg: String) {
@@ -591,6 +703,19 @@ impl<'a> Compiler<'a> {
         self.error_at_cursor(&msg);
     }
 
+    fn matches(&mut self, typ3: TokenType) -> bool {
+        if !self.check(typ3) {
+            return false;
+        }
+
+        self.advance();
+        true
+    }
+
+    fn check(&self, typ3: TokenType) -> bool {
+        self.parser.cursor.typ3 == typ3
+    }
+
     fn get_operator_precedence(&self) -> Option<(Precedence, TokenType)> {
         let operator = self.parser.previous.typ3;
         self.parse_rules
@@ -600,6 +725,12 @@ impl<'a> Compiler<'a> {
 
     fn emit_byte(&mut self, byte: u8) {
         self.block.push(byte, self.parser.previous.line as u32);
+    }
+
+    fn emit_bytes(&mut self, bytes: Vec<u8>) {
+        for byte in bytes.iter() {
+            self.emit_byte(*byte);
+        }
     }
 
     fn emit_return(&mut self) {
@@ -618,9 +749,8 @@ impl<'a> Compiler<'a> {
     }
 
     fn emit_constant(&mut self, constant: Constant) {
-        self.emit_byte(OpCode::Constant as u8);
         let index = self.make_constant(constant);
-        self.emit_byte(index);
+        self.emit_bytes(vec![OpCode::Constant as u8, index]);
     }
 
     fn error_at_cursor(&mut self, msg: &String) {
@@ -642,14 +772,14 @@ impl<'a> Compiler<'a> {
         print!("[line:{line:2}] Compiler Error:");
 
         if let TokenType::Eof = token.typ3 {
-            print!(" at end");
+            print!(" at end:");
         } else if let TokenType::Error = token.typ3 {
             // Nothing
         } else {
-            print!(" at '{}'", token.lexeme);
+            print!(" at '{}':", token.lexeme);
         }
 
-        println!(": {msg}");
+        println!(" {msg}");
 
         self.parser.had_error = true;
     }

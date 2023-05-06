@@ -2,6 +2,11 @@ use crate::constant::{Constant, ConstantPool};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OpCode {
+    Print,
+    Pop,
+    DefineGlobal,
+    GetGlobal,
+    SetGlobal,
     Constant,
     True,
     False,
@@ -20,12 +25,17 @@ pub enum OpCode {
 }
 
 pub enum OpError {
-    BadConversion,
+    UnknownOperation,
 }
 
 impl OpCode {
     pub fn from(value: u8) -> Result<Self, OpError> {
         match value {
+            value if value == OpCode::Print as u8 => Ok(OpCode::Print),
+            value if value == OpCode::Pop as u8 => Ok(OpCode::Pop),
+            value if value == OpCode::DefineGlobal as u8 => Ok(OpCode::DefineGlobal),
+            value if value == OpCode::GetGlobal as u8 => Ok(OpCode::GetGlobal),
+            value if value == OpCode::SetGlobal as u8 => Ok(OpCode::SetGlobal),
             value if value == OpCode::Constant as u8 => Ok(OpCode::Constant),
             value if value == OpCode::True as u8 => Ok(OpCode::True),
             value if value == OpCode::False as u8 => Ok(OpCode::False),
@@ -41,7 +51,7 @@ impl OpCode {
             value if value == OpCode::Mul as u8 => Ok(OpCode::Mul),
             value if value == OpCode::Div as u8 => Ok(OpCode::Div),
             value if value == OpCode::Return as u8 => Ok(OpCode::Return),
-            _ => Err(OpError::BadConversion),
+            _ => Err(OpError::UnknownOperation),
         }
     }
 }

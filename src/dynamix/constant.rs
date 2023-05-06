@@ -37,15 +37,15 @@ impl Constant {
 impl Display for Constant {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Constant::Number(x) => write!(f, "'{x}'"),
-            Constant::Bool(x) => write!(f, "'{x}'"),
-            Constant::Char(c) => write!(f, "'{c}'"),
+            Constant::Number(x) => write!(f, "{x}"),
+            Constant::Bool(x) => write!(f, "{x}"),
+            Constant::Char(c) => write!(f, "{c}"),
             Constant::Obj(obj) => match obj.typ3 {
                 ObjectType::String => {
                     write!(f, "{}", String::from_utf8(obj.bytes.clone()).unwrap())
                 }
             },
-            Constant::Null => write!(f, "'null'"),
+            Constant::Null => write!(f, "null"),
         }
     }
 }

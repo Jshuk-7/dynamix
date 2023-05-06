@@ -1,3 +1,5 @@
+use std::ops::Index;
+
 pub struct Stack<T> {
     data: Vec<T>,
 }
@@ -25,6 +27,10 @@ impl<T> Stack<T> {
         unsafe { self.as_ptr().add(self.len()) }
     }
 
+    pub fn last(&self) -> Option<&T> {
+        self.data.last()
+    }
+
     pub fn len(&self) -> usize {
         self.data.len()
     }
@@ -35,5 +41,13 @@ impl<T> Stack<T> {
 
     pub fn clear(&mut self) {
         self.data.clear();
+    }
+}
+
+impl<T> Index<usize> for Stack<T> {
+    type Output = T;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.data[index]
     }
 }

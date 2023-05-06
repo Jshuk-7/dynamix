@@ -9,12 +9,23 @@ pub mod virtual_machine;
 use compiler::Compiler;
 use virtual_machine::{InterpretResult, VirtualMachine};
 
-use std::io::{stdin, stdout, Write};
+use std::{
+    io::{stdin, stdout, Write},
+    path::Path,
+};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+pub type RuntimeResult = (InterpretResult, String);
+
 pub fn repl() {
-    print_welcome_msg();
+    println!(
+        "Welcome to Dynamix {VERSION}, running {} on platform {}",
+        std::env::consts::ARCH,
+        std::env::consts::OS
+    );
+
+    let mut vm = VirtualMachine::new();
 
     loop {
         print!(">> ");
@@ -23,27 +34,52 @@ pub fn repl() {
         let mut line = String::new();
 
         stdin().read_line(&mut line).unwrap();
-        run(&line);
+        let mut compiler = Compiler::new(&line);
+
+        if !compiler.compile() {
+            continue;
+        }
+
+        let byte_code = compiler.byte_code();
+        let result = vm.interpret(byte_code);
+        if let InterpretResult::RuntimeError = result {
+            let error = vm.last_runtime_error();
+            print_result(result, "<stdin>", error);
+        }
     }
 }
 
-pub fn run(source: &str) -> InterpretResult {
+pub fn run(source: &str) -> RuntimeResult {
     let mut compiler = Compiler::new(source);
 
     if !compiler.compile() {
-        return InterpretResult::CompileError;
+        return (InterpretResult::CompileError, "".to_string());
     }
 
     let mut vm = VirtualMachine::new();
-    vm.interpret(compiler.byte_code())
+    let byte_code = compiler.byte_code();
+    let result = vm.interpret(byte_code);
+    let error = vm.last_runtime_error();
+    (result, error)
 }
 
 pub fn run_file(path: &str) {
     if let Ok(source) = std::fs::read_to_string(path) {
-        let result = run(&source);
-        print_result(result);
+        let (result, error) = run(&source);
+        let filename = Path::new(path).file_stem().unwrap().to_str().unwrap();
+        print_result(result, filename, error);
     } else {
         println!("Failed to open file from path: /{path}");
+    }
+}
+
+fn print_result(result: InterpretResult, name: &str, error: String) {
+    match result {
+        InterpretResult::Ok => println!("program exited successfully..."),
+        InterpretResult::CompileError => {
+            println!("could not compile '{name}' due to previous error")
+        }
+        InterpretResult::RuntimeError => println!("thread 'main' panicked at: {error}"),
     }
 }
 
@@ -53,20 +89,4 @@ pub fn print_usage() {
     println!("\tscript: source filepath");
     println!();
     println!("(Hint: run dynamix with no args to start the interactive REPL)");
-}
-
-fn print_result(result: InterpretResult) {
-    match result {
-        InterpretResult::Ok => println!("program exited successfully..."),
-        InterpretResult::CompileError => println!("could not compile due to previous error"),
-        InterpretResult::RuntimeError => println!("thread 'main' panicked at"),
-    }
-}
-
-fn print_welcome_msg() {
-    println!(
-        "Welcome to Dynamix {VERSION}, running {} on platform {}",
-        std::env::consts::ARCH,
-        std::env::consts::OS
-    );
 }

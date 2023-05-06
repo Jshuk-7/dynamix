@@ -53,6 +53,13 @@ impl Disassembler {
         let instruction = block.bytes[*offset];
         match OpCode::from(instruction) {
             Ok(inst) => match inst {
+                OpCode::Print => Disassembler::simple_instruction("OP_PRINT", offset),
+                OpCode::Pop => Disassembler::simple_instruction("OP_POP", offset),
+                OpCode::DefineGlobal => {
+                    Disassembler::simple_instruction("OP_DEFINE_GLOBAL", offset)
+                }
+                OpCode::GetGlobal => Disassembler::simple_instruction("OP_GET_GLOBAL", offset),
+                OpCode::SetGlobal => Disassembler::simple_instruction("OP_SET_GLOBAL", offset),
                 OpCode::Constant => {
                     Disassembler::constant_instruction(block, "OP_CONSTANT", offset)
                 }

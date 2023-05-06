@@ -5,6 +5,8 @@ use crate::{
     stack::Stack,
 };
 
+use std::collections::HashMap;
+
 fn type_mismatch(vm: &mut VirtualMachine, op_char: char, lhs_type: &str, rhs_type: &str) {
     vm.runtime_error(format!(
         "Type mismatch, operator '{op_char}' not supported for types '{lhs_type}' and '{rhs_type}'",
@@ -47,7 +49,7 @@ macro_rules! binary_op {
 
                                 string.append(&mut y.bytes.clone());
                             } else if let Constant::Number(x) = rhs {
-                                let mut value = x.to_string().as_bytes().to_owned();
+                                let mut value: Vec<u8> = x.to_string().bytes().collect();
                                 string.append(&mut value);
                             } else if let Constant::Char(x) = rhs {
                                 string.push(x as u8);
@@ -86,6 +88,8 @@ pub struct VirtualMachine {
     ip: *const u8,
     origin: *const u8,
     stack: Stack<Constant>,
+    globals: HashMap<String, Constant>,
+    last_runtime_error: String,
 }
 
 impl VirtualMachine {
@@ -95,11 +99,13 @@ impl VirtualMachine {
             ip: std::ptr::null::<u8>(),
             origin: std::ptr::null::<u8>(),
             stack: Stack::new(STACK_STARTING_CAP),
+            globals: HashMap::new(),
+            last_runtime_error: String::new(),
         }
     }
 
-    pub fn stack(self) -> Stack<Constant> {
-        self.stack
+    pub fn last_runtime_error(&self) -> String {
+        self.last_runtime_error.clone()
     }
 
     pub fn interpret(&mut self, block: &ByteBlock) -> InterpretResult {
@@ -165,6 +171,45 @@ impl VirtualMachine {
 
             match OpCode::from(instruction) {
                 Ok(opcode) => match opcode {
+                    OpCode::Print => {
+                        if let Some(constant) = self.stack.pop() {
+                            println!("{constant}");
+                        }
+                    }
+                    OpCode::Pop => {
+                        if !self.stack.is_empty() {
+                            self.stack.pop();
+                        }
+                    }
+                    OpCode::DefineGlobal => {
+                        if let Some(name) = self.read_constant() {
+                            let value = self.stack.last().unwrap().clone();
+                            self.globals.insert(name.to_string(), value);
+                            self.stack.pop();
+                        }
+                    }
+                    OpCode::GetGlobal => {
+                        if let Some(name) = self.read_constant() {
+                            let value = self.globals.get_key_value(&name.to_string());
+                            match value {
+                                Some((.., constant)) => self.stack.push(constant.clone()),
+                                None => {
+                                    let err = format!("Undefined variable '{name}'");
+                                    self.runtime_error(err);
+                                    result = InterpretResult::RuntimeError;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    OpCode::SetGlobal => {
+                        if let Some(name) = self.read_constant() {
+                            if self.globals.contains_key(&name.to_string()) {
+                                let top = self.stack.last().unwrap().clone();
+                                self.globals.insert(name.to_string(), top);
+                            }
+                        }
+                    }
                     OpCode::Constant => {
                         // remember OP_CONSTANT instruction 'loads' a constant onto the stack
                         if let Some(constant) = self.read_constant() {
@@ -224,13 +269,7 @@ impl VirtualMachine {
                     OpCode::Sub => binary_op!(self, -, '-',result),
                     OpCode::Mul => binary_op!(self, *, '*',result),
                     OpCode::Div => binary_op!(self, /, '/',result),
-                    OpCode::Return => {
-                        if let Some(constant) = self.stack.pop() {
-                            println!("{constant}");
-                        }
-
-                        break;
-                    }
+                    OpCode::Return => break,
                 },
                 Err(..) => result = InterpretResult::RuntimeError,
             }
@@ -252,7 +291,7 @@ impl VirtualMachine {
     fn runtime_error(&mut self, msg: String) {
         let instruction = self.ip as usize - self.origin as usize;
         let line = self.block.lines[instruction];
-        println!("[line:{line:2}] Runtime Error: {msg}");
+        self.last_runtime_error = format!("[line:{line:2}] Runtime Error: {msg}");
         self.stack.clear();
     }
 }
