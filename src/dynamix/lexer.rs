@@ -233,8 +233,12 @@ impl<'a> Lexer<'a> {
     }
 
     fn number(&mut self) -> Option<Token> {
-        while self.peek().is_ascii_digit() {
+        while !self.is_at_end() && self.peek().is_ascii_digit() {
             self.advance();
+        }
+
+        if self.is_at_end() {
+            return Some(self.make_token(TokenType::Number));
         }
 
         if self.peek() == '.' {
