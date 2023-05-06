@@ -509,13 +509,13 @@ impl<'a> Compiler<'a> {
 
     fn if_statement(&mut self) {
         self.expression();
-        
+
         let then_jump = self.emit_jump(OpCode::Jz as u8);
         self.emit_byte(OpCode::Pop as u8);
-        
+
         self.consume(TokenType::LCurly, "Expected '{' after if".to_string());
         self.block();
-        
+
         let else_jump = self.emit_jump(OpCode::Jmp as u8);
 
         self.patch_jump(then_jump);
@@ -525,8 +525,24 @@ impl<'a> Compiler<'a> {
             self.consume(TokenType::LCurly, "Expected '}' after block".to_string());
             self.block();
         }
-        
+
         self.patch_jump(else_jump);
+    }
+
+    fn while_statement(&mut self) {
+        let loop_start: u8 = self.block.bytes.len() as u8;
+        self.expression();
+
+        let exit_jump = self.emit_jump(OpCode::Jz as u8);
+        self.emit_byte(OpCode::Pop as u8);
+
+        self.consume(TokenType::LCurly, "Expected '{' after while".to_string());
+        self.block();
+
+        self.emit_loop(loop_start);
+
+        self.patch_jump(exit_jump);
+        self.emit_byte(OpCode::Pop as u8);
     }
 
     fn declaration(&mut self) {
@@ -546,6 +562,8 @@ impl<'a> Compiler<'a> {
             self.print_statement();
         } else if self.matches(TokenType::If) {
             self.if_statement();
+        } else if self.matches(TokenType::While) {
+            self.while_statement();
         } else if self.matches(TokenType::LCurly) {
             self.begin_scope();
             self.block();
@@ -689,7 +707,15 @@ impl<'a> Compiler<'a> {
     }
 
     fn number(&mut self, _can_assign: bool) {
-        let value = self.parser.previous.lexeme.parse::<f64>().unwrap();
+        let mut lexeme = self.parser.previous.lexeme.clone();
+        if lexeme.contains('_') {
+            lexeme = lexeme.replace('_', "");
+        }
+        if lexeme.contains('\'') {
+            lexeme = lexeme.replace('\'', "");
+        }
+
+        let value = lexeme.parse::<f64>().unwrap();
         self.emit_constant(Constant::Number(value));
     }
 
@@ -900,6 +926,18 @@ impl<'a> Compiler<'a> {
         for byte in bytes.iter() {
             self.emit_byte(*byte);
         }
+    }
+
+    fn emit_loop(&mut self, loop_start: u8) {
+        self.emit_byte(OpCode::Loop as u8);
+
+        let offset = (self.block.bytes.len() - loop_start as usize) + 2;
+        if offset > u16::MAX as usize {
+            self.error(&"Loop body too large, extract it into a local function".to_string());
+        }
+
+        self.emit_byte((offset >> 8) as u8 & 0xff);
+        self.emit_byte(offset as u8 & 0xff);
     }
 
     fn emit_jump(&mut self, instruction: u8) -> usize {

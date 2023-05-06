@@ -28,6 +28,18 @@ impl Disassembler {
         *offset += 1;
     }
 
+    fn byte_instruction(block: &ByteBlock, name: &str, offset: &mut usize) {
+        Disassembler::write_block_instruction(block, name, offset)
+    }
+
+    fn jump_instruction(block: &ByteBlock, name: &str, sign: isize, offset: &mut usize) {
+        let mut jump = ((block.bytes[*offset + 1] as u8) as u16) << 8;
+        jump |= block.bytes[*offset + 2] as u16;
+        let to = *offset + 3 + (sign * jump as isize) as usize;
+        println!("{name:16} {offset:04} -> {}", to);
+        *offset += 3;
+    }
+
     pub fn disassemble_instruction(block: &ByteBlock, offset: &mut usize) {
         print!("{:04} ", *offset);
 
@@ -60,10 +72,11 @@ impl Disassembler {
                 }
                 OpCode::GetGlobal => Disassembler::simple_instruction("OP_GET_GLOBAL", offset),
                 OpCode::SetGlobal => Disassembler::simple_instruction("OP_SET_GLOBAL", offset),
-                OpCode::GetLocal => Disassembler::simple_instruction("OP_GET_LOCAL", offset),
-                OpCode::SetLocal => Disassembler::simple_instruction("OP_SET_LOCAL", offset),
-                OpCode::Jz => Disassembler::simple_instruction("OP_JUMP_IF_FALSE", offset),
-                OpCode::Jmp => Disassembler::simple_instruction("OP_JUMP", offset),
+                OpCode::GetLocal => Disassembler::byte_instruction(block, "OP_GET_LOCAL", offset),
+                OpCode::SetLocal => Disassembler::byte_instruction(block, "OP_SET_LOCAL", offset),
+                OpCode::Jz => Disassembler::jump_instruction(block, "OP_JUMP_IF_FALSE", 1, offset),
+                OpCode::Jmp => Disassembler::jump_instruction(block, "OP_JUMP", 1, offset),
+                OpCode::Loop => Disassembler::jump_instruction(block, "OP_LOOP", -1, offset),
                 OpCode::Constant => {
                     Disassembler::constant_instruction(block, "OP_CONSTANT", offset)
                 }

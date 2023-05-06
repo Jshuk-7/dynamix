@@ -126,11 +126,30 @@ impl VirtualMachine {
         }
     }
 
+    fn descend_ip(&mut self) -> u8 {
+        let byte: u8;
+        unsafe {
+            byte = *self.ip;
+            self.ip = self.ip.sub(1);
+            byte
+        }
+    }
+
     fn advance_ip_by(&mut self, count: usize) -> u8 {
         let mut result = 0;
 
         for _ in 0..count {
             result = self.advance_ip();
+        }
+
+        result
+    }
+
+    fn descend_ip_by(&mut self, count: usize) -> u8 {
+        let mut result = 0;
+
+        for _ in 0..count {
+            result = self.descend_ip();
         }
 
         result
@@ -251,6 +270,11 @@ impl VirtualMachine {
                     OpCode::Jmp => {
                         if let Some(offset) = self.read_short() {
                             self.advance_ip_by(offset as usize);
+                        }
+                    }
+                    OpCode::Loop => {
+                        if let Some(offset) = self.read_short() {
+                            self.descend_ip_by(offset as usize);
                         }
                     }
                     OpCode::Constant => {

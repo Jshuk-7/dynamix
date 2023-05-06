@@ -233,7 +233,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn number(&mut self) -> Option<Token> {
-        while !self.is_at_end() && self.peek().is_ascii_digit() {
+        while !self.is_at_end() && self.peek().is_ascii_digit() || "_'".contains(self.peek()) {
             self.advance();
         }
 
@@ -243,7 +243,7 @@ impl<'a> Lexer<'a> {
 
         if self.peek() == '.' {
             self.advance();
-            while self.peek().is_ascii_digit() {
+            while self.peek().is_ascii_digit() || "_'".contains(self.peek()) {
                 self.advance();
             }
         }
