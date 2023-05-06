@@ -58,9 +58,10 @@ struct ParseRule<'a> {
     precedence: Precedence,
 }
 
+#[derive(Debug, Clone)]
 struct Local {
     name: Token,
-    depth: usize,
+    depth: isize,
 }
 
 const LOCALS_MAX_SIZE: usize = 256;
@@ -613,17 +614,36 @@ impl<'a> Compiler<'a> {
 
     fn end_scope(&mut self) -> usize {
         self.scope_depth -= 1;
+
+        while !self.locals.is_empty()
+            && self.locals[self.locals.len() - 1].depth > self.scope_depth as isize
+        {
+            self.locals.remove(self.locals.len() - 1);
+            self.emit_byte(OpCode::Pop as u8);
+        }
+
         self.scope_depth
     }
 
     fn named_variable(&mut self, name: Token, can_assign: bool) {
-        let arg = self.identifier_constant(&name);
+        let get_op;
+        let set_op;
+        let mut arg = self.resolve_local(&name);
+
+        if arg != -1 {
+            get_op = OpCode::GetLocal;
+            set_op = OpCode::SetLocal;
+        } else {
+            arg = self.identifier_constant(&name) as i32;
+            get_op = OpCode::GetGlobal;
+            set_op = OpCode::SetGlobal;
+        }
 
         if can_assign && self.matches(TokenType::Eq) {
             self.expression();
-            self.emit_bytes(vec![OpCode::SetGlobal as u8, arg]);
+            self.emit_bytes(vec![set_op as u8, arg as u8]);
         } else {
-            self.emit_bytes(vec![OpCode::GetGlobal as u8, arg]);
+            self.emit_bytes(vec![get_op as u8, arg as u8]);
         }
     }
 
@@ -719,12 +739,74 @@ impl<'a> Compiler<'a> {
         }))
     }
 
+    fn identifiers_equal(&self, name: &Token, token: &Token) -> bool {
+        if name.lexeme.len() != token.lexeme.len() {
+            return false;
+        }
+
+        name.lexeme == token.lexeme
+    }
+
+    fn resolve_local(&self, name: &Token) -> i32 {
+        for (i, local) in self.locals.clone().enumerate() {
+            if self.identifiers_equal(name, &local.name) {
+                return i as i32;
+            }
+        }
+
+        -1
+    }
+
+    fn add_local(&mut self, name: &Token) {
+        if self.locals.len() == u8::MAX as usize {
+            self.error(&"Too many local variables in function".to_string());
+            return;
+        }
+
+        for local in self.locals.clone().by_ref() {
+            if local.depth != -1 && local.depth < self.scope_depth as isize {
+                return;
+            }
+
+            if self.identifiers_equal(&name, &local.name) {
+                let err = format!("Redefined variable '{name}' in the same scope");
+                self.error(&err);
+            }
+        }
+
+        let local = Local {
+            name: name.clone(),
+            depth: self.scope_depth as isize,
+        };
+
+        self.locals.push(local);
+    }
+
+    fn declare_variable(&mut self) {
+        if self.scope_depth == 0 {
+            return;
+        }
+
+        let name = self.parser.previous.clone();
+        self.add_local(&name);
+    }
+
     fn parse_variable(&mut self, error: String) -> u8 {
         self.consume(TokenType::Ident, error);
+
+        self.declare_variable();
+        if self.scope_depth > 0 {
+            return 0;
+        }
+
         self.identifier_constant(&self.parser.previous.clone())
     }
 
     fn define_variable(&mut self, global: u8) {
+        if self.scope_depth > 0 {
+            return;
+        }
+
         self.emit_bytes(vec![OpCode::DefineGlobal as u8, global]);
     }
 

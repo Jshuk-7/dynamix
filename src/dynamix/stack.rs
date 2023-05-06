@@ -1,5 +1,6 @@
-use std::ops::Index;
+use std::ops::{Index, IndexMut};
 
+#[derive(Debug, Clone)]
 pub struct Stack<T> {
     data: Vec<T>,
 }
@@ -17,6 +18,10 @@ impl<T> Stack<T> {
 
     pub fn pop(&mut self) -> Option<T> {
         self.data.pop()
+    }
+
+    pub fn remove(&mut self, index: usize) -> T {
+        self.data.remove(index)
     }
 
     pub fn as_ptr(&self) -> *const T {
@@ -44,10 +49,28 @@ impl<T> Stack<T> {
     }
 }
 
+impl<T> IndexMut<usize> for Stack<T> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.data[index]
+    }
+}
+
 impl<T> Index<usize> for Stack<T> {
     type Output = T;
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.data[index]
+    }
+}
+
+impl<T> Iterator for Stack<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.is_empty() {
+            return None;
+        }
+
+        Some(self.data.remove(0))
     }
 }

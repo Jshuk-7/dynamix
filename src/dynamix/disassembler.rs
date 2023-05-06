@@ -60,6 +60,8 @@ impl Disassembler {
                 }
                 OpCode::GetGlobal => Disassembler::simple_instruction("OP_GET_GLOBAL", offset),
                 OpCode::SetGlobal => Disassembler::simple_instruction("OP_SET_GLOBAL", offset),
+                OpCode::GetLocal => Disassembler::simple_instruction("OP_GET_LOCAL", offset),
+                OpCode::SetLocal => Disassembler::simple_instruction("OP_SET_LOCAL", offset),
                 OpCode::Constant => {
                     Disassembler::constant_instruction(block, "OP_CONSTANT", offset)
                 }

@@ -183,7 +183,7 @@ impl VirtualMachine {
                     }
                     OpCode::DefineGlobal => {
                         if let Some(name) = self.read_constant() {
-                            let value = self.stack.last().unwrap().clone();
+                            let value = self.stack.clone().last().unwrap();
                             self.globals.insert(name.to_string(), value);
                             self.stack.pop();
                         }
@@ -205,9 +205,19 @@ impl VirtualMachine {
                     OpCode::SetGlobal => {
                         if let Some(name) = self.read_constant() {
                             if self.globals.contains_key(&name.to_string()) {
-                                let top = self.stack.last().unwrap().clone();
+                                let top = self.stack.clone().last().unwrap();
                                 self.globals.insert(name.to_string(), top);
                             }
+                        }
+                    }
+                    OpCode::GetLocal => {
+                        if let Some(slot) = self.read_byte() {
+                            self.stack.push(self.stack[slot as usize].clone());
+                        }
+                    }
+                    OpCode::SetLocal => {
+                        if let Some(slot) = self.read_byte() {
+                            self.stack[slot as usize] = self.stack.clone().last().unwrap();
                         }
                     }
                     OpCode::Constant => {
