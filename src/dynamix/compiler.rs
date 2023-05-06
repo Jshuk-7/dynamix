@@ -513,8 +513,10 @@ impl<'a> Compiler<'a> {
         let then_jump = self.emit_jump(OpCode::Jz as u8);
         self.emit_byte(OpCode::Pop as u8);
 
+        self.begin_scope();
         self.consume(TokenType::LCurly, "Expected '{' after if".to_string());
         self.block();
+        self.end_scope();
 
         let else_jump = self.emit_jump(OpCode::Jmp as u8);
 
@@ -530,19 +532,68 @@ impl<'a> Compiler<'a> {
     }
 
     fn while_statement(&mut self) {
-        let loop_start: u8 = self.block.bytes.len() as u8;
+        let loop_start = self.block.bytes.len();
         self.expression();
 
         let exit_jump = self.emit_jump(OpCode::Jz as u8);
         self.emit_byte(OpCode::Pop as u8);
 
+        self.begin_scope();
         self.consume(TokenType::LCurly, "Expected '{' after while".to_string());
         self.block();
+        self.end_scope();
 
-        self.emit_loop(loop_start);
+        self.emit_loop(loop_start as u8);
 
         self.patch_jump(exit_jump);
         self.emit_byte(OpCode::Pop as u8);
+    }
+
+    fn for_statement(&mut self) {
+        // begin scope so we can include the inline variable
+        self.begin_scope();
+        self.consume(TokenType::LParen, "Expected '(' after for".to_string());
+        if self.matches(TokenType::Semicolon) {
+            // no initializer
+        } else if self.matches(TokenType::Let) {
+            self.let_declaration();
+        } else {
+            self.expression_statement();
+        }
+        
+        let mut loop_start = self.block.bytes.len();
+        let mut exit_jump = -1;
+        if !self.matches(TokenType::Semicolon) {
+            self.expression();
+            self.consume(TokenType::Semicolon, "Expected ';' after expression".to_string());
+
+            exit_jump = self.emit_jump(OpCode::Jz as u8) as isize;
+            self.emit_byte(OpCode::Pop as u8);
+        }
+
+        if !self.matches(TokenType::RParen) {
+            let body_jump = self.emit_jump(OpCode::Jmp as u8);
+            let increment_start = self.block.bytes.len();
+            self.expression();
+            self.emit_byte(OpCode::Pop as u8);
+            self.consume(TokenType::RParen, "Expected ')' after for statement".to_string());
+        
+            self.emit_loop(loop_start as u8);
+            loop_start = increment_start;
+            self.patch_jump(body_jump);
+        }
+
+        self.consume(TokenType::LCurly, "Expected '{' after for statement".to_string());
+        self.block();
+        
+        self.emit_loop(loop_start as u8);
+        
+        if exit_jump != -1 {
+            self.patch_jump(exit_jump as usize);
+            self.emit_byte(OpCode::Pop as u8);
+        }
+
+        self.end_scope();
     }
 
     fn declaration(&mut self) {
@@ -564,6 +615,8 @@ impl<'a> Compiler<'a> {
             self.if_statement();
         } else if self.matches(TokenType::While) {
             self.while_statement();
+        } else if self.matches(TokenType::For) {
+            self.for_statement();
         } else if self.matches(TokenType::LCurly) {
             self.begin_scope();
             self.block();

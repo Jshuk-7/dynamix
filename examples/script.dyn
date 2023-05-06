@@ -1,8 +1,7 @@
 {
-    let entities = 100'000;
+    let people = 10;
 
-    while entities {
-        print("Entities left: " + entities);
-        entities = entities - 1;
+    for (let x = 10; x != 0; x = x - 1) {
+        print(x);
     }
 }
