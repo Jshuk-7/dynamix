@@ -17,7 +17,7 @@ macro_rules! binary_op {
             if let Some(lhs) = $self.stack.pop() {
                 if let Constant::Number(x) = lhs {
                     if let Constant::Number(y) = rhs {
-                        $self.stack.push(Constant::Number(x $op y))
+                        $self.stack.push(Constant::Number(x $op y));
                     } else {
                         type_mismatch($self, $op_char, lhs.type_to_string(), rhs.type_to_string());
                         $result = InterpretResult::RuntimeError;
@@ -25,7 +25,9 @@ macro_rules! binary_op {
                     }
                 } else if let Constant::Char(x) = lhs {
                     if let Constant::Char(y) = rhs {
-                        $self.stack.push(Constant::Char((x as u8 $op y as u8) as char))
+                        $self.stack.push(Constant::Char((x as u8 $op y as u8) as char));
+                    } else if let Constant::Number(y) = rhs {
+                        $self.stack.push(Constant::Char((x as u8 $op y as u8) as char));
                     } else {
                         type_mismatch($self, $op_char, lhs.type_to_string(), rhs.type_to_string());
                         $result = InterpretResult::RuntimeError;
