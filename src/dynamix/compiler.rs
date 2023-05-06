@@ -424,7 +424,7 @@ impl<'a> Compiler<'a> {
         !self.parser.had_error
     }
 
-    pub fn bytes(&self) -> &ByteBlock {
+    pub fn byte_code(&self) -> &ByteBlock {
         &self.block
     }
 

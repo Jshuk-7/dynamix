@@ -35,12 +35,13 @@ pub fn run(source: &str) -> InterpretResult {
     }
 
     let mut vm = VirtualMachine::new();
-    vm.interpret(compiler.bytes())
+    vm.interpret(compiler.byte_code())
 }
 
 pub fn run_file(path: &str) {
     if let Ok(source) = std::fs::read_to_string(path) {
-        run(&source);
+        let result = run(&source);
+        print_result(result);
     } else {
         println!("Failed to open file from path: /{path}");
     }
@@ -52,6 +53,14 @@ pub fn print_usage() {
     println!("\tscript: source filepath");
     println!();
     println!("(Hint: run dynamix with no args to start the interactive REPL)");
+}
+
+fn print_result(result: InterpretResult) {
+    match result {
+        InterpretResult::Ok => println!("program exited successfully..."),
+        InterpretResult::CompileError => println!("could not compile due to previous error"),
+        InterpretResult::RuntimeError => println!("thread 'main' panicked at"),
+    }
 }
 
 fn print_welcome_msg() {

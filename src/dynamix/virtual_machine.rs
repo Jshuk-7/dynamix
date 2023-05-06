@@ -5,21 +5,6 @@ use crate::{
     stack::Stack,
 };
 
-pub enum InterpretResult {
-    CompileError,
-    RuntimeError,
-    Ok,
-}
-
-const STACK_STARTING_CAP: usize = 256;
-
-pub struct VirtualMachine {
-    block: ByteBlock,
-    ip: *const u8,
-    origin: *const u8,
-    stack: Stack<Constant>,
-}
-
 fn type_mismatch(vm: &mut VirtualMachine, op_char: char, lhs_type: &str, rhs_type: &str) {
     vm.runtime_error(format!(
         "Type mismatch, operator '{op_char}' not supported for types '{lhs_type}' and '{rhs_type}'",
@@ -77,6 +62,21 @@ macro_rules! binary_op {
             }
         }
     };
+}
+
+const STACK_STARTING_CAP: usize = 256;
+
+pub enum InterpretResult {
+    Ok,
+    CompileError,
+    RuntimeError,
+}
+
+pub struct VirtualMachine {
+    block: ByteBlock,
+    ip: *const u8,
+    origin: *const u8,
+    stack: Stack<Constant>,
 }
 
 impl VirtualMachine {

@@ -216,7 +216,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn string(&mut self) -> Option<Token> {
-        while self.peek() != '"' && !self.is_at_end() {
+        while !self.is_at_end() && self.peek() != '"' {
             if self.peek() == '\n' {
                 self.line += 1;
             }
