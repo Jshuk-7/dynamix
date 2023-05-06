@@ -747,9 +747,13 @@ impl<'a> Compiler<'a> {
         name.lexeme == token.lexeme
     }
 
-    fn resolve_local(&self, name: &Token) -> i32 {
+    fn resolve_local(&mut self, name: &Token) -> i32 {
         for (i, local) in self.locals.clone().enumerate() {
             if self.identifiers_equal(name, &local.name) {
+                if local.depth == -1 {
+                    let err = format!("variable name '{}' not allowed in initializer", name.lexeme);
+                    self.error(&err);
+                }
                 return i as i32;
             }
         }
@@ -767,18 +771,18 @@ impl<'a> Compiler<'a> {
             if local.depth != -1 && local.depth < self.scope_depth as isize {
                 break;
             }
-            
-            if self.identifiers_equal(&name, &local.name) {
+
+            if self.identifiers_equal(name, &local.name) {
                 let err = format!("Redefined variable '{name}' in the same scope");
                 self.error(&err);
             }
         }
-        
+
         let local = Local {
             name: name.clone(),
-            depth: self.scope_depth as isize,
+            depth: -1,
         };
-        
+
         self.locals.push(local);
     }
 
@@ -802,8 +806,14 @@ impl<'a> Compiler<'a> {
         self.identifier_constant(&self.parser.previous.clone())
     }
 
+    fn mark_initialized(&mut self) {
+        let index = self.locals.len() - 1;
+        self.locals[index].depth = self.scope_depth as isize;
+    }
+
     fn define_variable(&mut self, global: u8) {
         if self.scope_depth > 0 {
+            self.mark_initialized();
             return;
         }
 
